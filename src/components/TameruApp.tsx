@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTameruStore } from "@/hooks/useTameruStore";
-import { buildAllocationData, buildTrendData, computeSummary } from "@/lib/assetCalc";
+import { buildAllocationData, buildTrendData, computeSummary, type AllocationMode } from "@/lib/assetCalc";
 import { Header } from "@/components/Header";
 import { SummaryCards } from "@/components/SummaryCards";
 import { AssetTable } from "@/components/AssetTable";
@@ -12,6 +12,7 @@ import { AllocationChart } from "@/components/AllocationChart";
 export function TameruApp() {
   const { store, isLoaded, saveError, ...actions } = useTameruStore();
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
 
   // new Date() はマウント後（isLoaded=true）にのみ描画へ反映されるので Hydration 差分は起きない
   const currentYear = new Date().getFullYear();
@@ -20,8 +21,9 @@ export function TameruApp() {
   const summary = useMemo(() => computeSummary(store, year), [store, year]);
   const trend = useMemo(() => buildTrendData(store, year), [store, year]);
   const allocation = useMemo(
-    () => (summary.latest ? buildAllocationData(store, summary.latest.year, summary.latest.month) : []),
-    [store, summary.latest],
+    () =>
+      summary.latest ? buildAllocationData(store, summary.latest.year, summary.latest.month, allocationMode) : [],
+    [store, summary.latest, allocationMode],
   );
 
   if (!isLoaded) return <LoadingSkeleton />;
@@ -39,7 +41,12 @@ export function TameruApp() {
         />
         <div className="grid gap-6 lg:grid-cols-5">
           <TrendChart data={trend} year={year} />
-          <AllocationChart data={allocation} latest={summary.latest} />
+          <AllocationChart
+            data={allocation}
+            latest={summary.latest}
+            mode={allocationMode}
+            onModeChange={setAllocationMode}
+          />
         </div>
       </main>
       <footer className="px-4 py-6 text-center text-xs text-slate-400">

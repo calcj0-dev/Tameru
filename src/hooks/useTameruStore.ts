@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { storeReducer, type StoreState } from "@/lib/storeReducer";
+import { storeReducer, type HoldingPatch, type StoreState } from "@/lib/storeReducer";
 import {
   createEmptyStore,
+  createHolding,
   createInitialStore,
   generateId,
   localStorageAdapter,
@@ -44,19 +45,32 @@ export function useTameruStore(adapter: StorageAdapter = localStorageAdapter) {
 
   const actions = useMemo(
     () => ({
-      addCategory(name = ""): string {
-        const id = generateId();
-        dispatch({ type: "addCategory", category: { id, name } });
+      /** 口座を追加（内訳を1件含む）。追加した口座のIDを返す */
+      addAccount(name = ""): string {
+        const id = generateId("acc");
+        dispatch({ type: "addAccount", account: { id, name, holdings: [createHolding()] } });
         return id;
       },
-      renameCategory(id: string, name: string) {
-        dispatch({ type: "renameCategory", id, name });
+      renameAccount(accountId: string, name: string) {
+        dispatch({ type: "renameAccount", accountId, name });
       },
-      removeCategory(id: string) {
-        dispatch({ type: "removeCategory", id });
+      removeAccount(accountId: string) {
+        dispatch({ type: "removeAccount", accountId });
       },
-      setAmount(year: number, month: number, categoryId: string, value: number | null) {
-        dispatch({ type: "setAmount", year, month, categoryId, value });
+      /** 内訳を追加。追加した内訳のIDを返す */
+      addHolding(accountId: string): string {
+        const holding = createHolding();
+        dispatch({ type: "addHolding", accountId, holding });
+        return holding.id;
+      },
+      updateHolding(holdingId: string, patch: HoldingPatch) {
+        dispatch({ type: "updateHolding", holdingId, patch });
+      },
+      removeHolding(holdingId: string) {
+        dispatch({ type: "removeHolding", holdingId });
+      },
+      setAmount(year: number, month: number, holdingId: string, value: number | null) {
+        dispatch({ type: "setAmount", year, month, holdingId, value });
       },
       copyPreviousMonth(year: number, month: number) {
         dispatch({ type: "copyPreviousMonth", year, month });

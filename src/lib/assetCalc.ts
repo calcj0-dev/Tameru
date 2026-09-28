@@ -1,5 +1,5 @@
-import type { TameruStore } from "@/types/asset";
-import { MONTHS, categoryColor } from "@/lib/constants";
+import type { AssetAccount, Holding, TameruStore } from "@/types/asset";
+import { ASSET_CLASSES, MONTHS, REGIONS, accountColor } from "@/lib/constants";
 
 export interface YearMonth {
   year: number;
@@ -20,20 +20,38 @@ export function getMonthAmounts(
   return store.yearlyData[year]?.monthlyAmounts[month];
 }
 
-/** 指定月の合計。現存カテゴリに1件も入力が無ければ null（未入力）。 */
-export function getMonthTotal(store: TameruStore, year: number, month: number): number | null {
-  const amounts = getMonthAmounts(store, year, month);
+export function allHoldings(store: TameruStore): Holding[] {
+  return store.accounts.flatMap((a) => a.holdings);
+}
+
+/** 指定した内訳の合計。1件も入力が無ければ null（未入力）。 */
+function sumHoldings(amounts: Record<string, number> | undefined, holdings: Holding[]): number | null {
   if (!amounts) return null;
   let hasValue = false;
   let sum = 0;
-  for (const c of store.categories) {
-    const v = amounts[c.id];
+  for (const h of holdings) {
+    const v = amounts[h.id];
     if (typeof v === "number" && Number.isFinite(v)) {
       hasValue = true;
       sum += v;
     }
   }
   return hasValue ? sum : null;
+}
+
+/** 指定月の総合計。現存する内訳に1件も入力が無ければ null（未入力）。 */
+export function getMonthTotal(store: TameruStore, year: number, month: number): number | null {
+  return sumHoldings(getMonthAmounts(store, year, month), allHoldings(store));
+}
+
+/** 指定月の口座小計 */
+export function getAccountMonthTotal(
+  store: TameruStore,
+  account: AssetAccount,
+  year: number,
+  month: number,
+): number | null {
+  return sumHoldings(getMonthAmounts(store, year, month), account.holdings);
 }
 
 export function hasMonthData(store: TameruStore, year: number, month: number): boolean {
@@ -117,14 +135,52 @@ export interface AllocationSlice {
   color: string;
 }
 
-/** 構成比。0円・マイナス（負債等）は円グラフに含めない。 */
-export function buildAllocationData(store: TameruStore, year: number, month: number): AllocationSlice[] {
+export type AllocationMode = "account" | "assetClass" | "region";
+
+/**
+ * 構成比。口座別 / 資産クラス別 / 地域別に内訳の金額を合算する。
+ * 0円・マイナス（負債等）は円グラフに含めない。
+ */
+export function buildAllocationData(
+  store: TameruStore,
+  year: number,
+  month: number,
+  mode: AllocationMode,
+): AllocationSlice[] {
   const amounts = getMonthAmounts(store, year, month) ?? {};
-  const slices = store.categories
-    .map((c, i) => ({ id: c.id, name: c.name || "（名称未設定）", value: amounts[c.id] ?? 0, color: categoryColor(i) }))
-    .filter((s) => Number.isFinite(s.value) && s.value > 0);
-  const sum = slices.reduce((acc, s) => acc + s.value, 0);
-  return slices
+  const sumOf = (holdings: Holding[]) =>
+    holdings.reduce((acc, h) => {
+      const v = amounts[h.id];
+      return acc + (typeof v === "number" && Number.isFinite(v) ? v : 0);
+    }, 0);
+  const holdings = allHoldings(store);
+
+  const slices =
+    mode === "account"
+      ? store.accounts.map((a, i) => ({
+          id: a.id,
+          name: a.name || "（名称未設定）",
+          value: sumOf(a.holdings),
+          color: accountColor(i),
+        }))
+      : mode === "assetClass"
+        ? ASSET_CLASSES.map((c) => ({
+            id: c.id,
+            name: c.label,
+            value: sumOf(holdings.filter((h) => h.assetClass === c.id)),
+            color: c.color,
+          }))
+        : REGIONS.map((r) => ({
+            id: r.id,
+            name: r.id === "none" ? "地域なし" : r.label,
+            value: sumOf(holdings.filter((h) => h.region === r.id)),
+            color: r.color,
+          }));
+
+  const positive = slices.filter((s) => s.value > 0);
+  const sum = positive.reduce((acc, s) => acc + s.value, 0);
+  return positive
     .map((s) => ({ ...s, ratio: sum > 0 ? s.value / sum : 0 }))
     .sort((a, b) => b.value - a.value);
 }
+

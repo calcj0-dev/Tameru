@@ -1,19 +1,56 @@
 "use client";
 
 import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import type { AllocationSlice, YearMonth } from "@/lib/assetCalc";
+import type { AllocationMode, AllocationSlice, YearMonth } from "@/lib/assetCalc";
 import { formatCompactYen, formatYen } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-export function AllocationChart({ data, latest }: { data: AllocationSlice[]; latest: YearMonth | null }) {
+const MODES: { value: AllocationMode; label: string }[] = [
+  { value: "assetClass", label: "資産クラス" },
+  { value: "region", label: "地域" },
+  { value: "account", label: "口座" },
+];
+
+export function AllocationChart({
+  data,
+  latest,
+  mode,
+  onModeChange,
+}: {
+  data: AllocationSlice[];
+  latest: YearMonth | null;
+  mode: AllocationMode;
+  onModeChange: (mode: AllocationMode) => void;
+}) {
   const total = data.reduce((acc, s) => acc + s.value, 0);
   const chartData = data.map((s) => ({ ...s, fill: s.color }));
 
   return (
     <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-      <h2 className="font-semibold text-slate-900">ポートフォリオ構成比</h2>
-      <p className="mt-0.5 text-xs text-slate-500">
-        {latest ? `${latest.year}年${latest.month}月末時点` : "最新月のデータがありません"}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="font-semibold text-slate-900">ポートフォリオ構成比</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {latest ? `${latest.year}年${latest.month}月末時点` : "最新月のデータがありません"}
+          </p>
+        </div>
+        <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="集計単位">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => onModeChange(m.value)}
+              aria-pressed={mode === m.value}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-medium transition",
+                mode === m.value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
+              )}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {data.length === 0 ? (
         <div className="grid h-72 place-items-center text-sm text-slate-400">データを入力すると構成比が表示されます</div>

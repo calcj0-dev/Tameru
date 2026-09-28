@@ -5,7 +5,9 @@ import type { TrendPoint } from "@/lib/assetCalc";
 import { formatCompactYen, formatYen } from "@/lib/format";
 
 export function TrendChart({ data, year }: { data: TrendPoint[]; year: number }) {
-  const hasData = data.some((d) => d.total !== null);
+  const values = data.flatMap((d) => (d.total !== null && Number.isFinite(d.total) ? [d.total] : []));
+  const hasData = values.length > 0;
+  const domain = yDomain(values);
 
   return (
     <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3">
@@ -29,7 +31,8 @@ export function TrendChart({ data, year }: { data: TrendPoint[]; year: number })
               tickLine={false}
               axisLine={false}
               width={64}
-              domain={hasData ? ["auto", "auto"] : [0, 1]}
+              domain={domain}
+              allowDecimals={false}
             />
             <Tooltip
               cursor={{ stroke: "#99f6e4", strokeWidth: 2 }}
@@ -52,6 +55,18 @@ export function TrendChart({ data, year }: { data: TrendPoint[]; year: number })
       </div>
     </section>
   );
+}
+
+/**
+ * Y軸の範囲。値が1点だけ・全月同額の場合でも目盛りが重複しないよう上下に余白を取る。
+ */
+function yDomain(values: number[]): [number, number] {
+  if (values.length === 0) return [0, 1];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.1, Math.abs(max) * 0.05, 10_000);
+  const lower = min >= 0 ? Math.max(0, min - pad) : min - pad;
+  return [Math.floor(lower), Math.ceil(max + pad)];
 }
 
 function EmptyOverlay() {

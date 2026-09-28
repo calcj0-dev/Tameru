@@ -1,13 +1,18 @@
-import type { AssetCategory, TameruStore } from "@/types/asset";
-import { MAX_CATEGORIES } from "@/lib/constants";
-import { getMonthAmounts, shiftMonth } from "@/lib/assetCalc";
+import type { AssetAccount, Holding, TameruStore } from "@/types/asset";
+import { MAX_ACCOUNTS, MAX_HOLDINGS_PER_ACCOUNT, suggestRegion } from "@/lib/constants";
+import { allHoldings, getMonthAmounts, shiftMonth } from "@/lib/assetCalc";
+
+export type HoldingPatch = Partial<Omit<Holding, "id">>;
 
 export type StoreAction =
   | { type: "hydrate"; store: TameruStore }
-  | { type: "addCategory"; category: AssetCategory }
-  | { type: "renameCategory"; id: string; name: string }
-  | { type: "removeCategory"; id: string }
-  | { type: "setAmount"; year: number; month: number; categoryId: string; value: number | null }
+  | { type: "addAccount"; account: AssetAccount }
+  | { type: "renameAccount"; accountId: string; name: string }
+  | { type: "removeAccount"; accountId: string }
+  | { type: "addHolding"; accountId: string; holding: Holding }
+  | { type: "updateHolding"; holdingId: string; patch: HoldingPatch }
+  | { type: "removeHolding"; holdingId: string }
+  | { type: "setAmount"; year: number; month: number; holdingId: string; value: number | null }
   | { type: "copyPreviousMonth"; year: number; month: number };
 
 export interface StoreState {
@@ -25,54 +30,99 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
 
 function applyAction(store: TameruStore, action: Exclude<StoreAction, { type: "hydrate" }>): TameruStore {
   switch (action.type) {
-    case "addCategory":
-      if (store.categories.length >= MAX_CATEGORIES) return store;
-      return { ...store, categories: [...store.categories, action.category] };
+    case "addAccount":
+      if (store.accounts.length >= MAX_ACCOUNTS) return store;
+      return { ...store, accounts: [...store.accounts, action.account] };
 
-    case "renameCategory":
-      return {
-        ...store,
-        categories: store.categories.map((c) => (c.id === action.id ? { ...c, name: action.name } : c)),
-      };
+    case "renameAccount":
+      return mapAccounts(store, (a) => (a.id === action.accountId ? { ...a, name: action.name } : a));
 
-    case "removeCategory": {
-      const categories = store.categories.filter((c) => c.id !== action.id);
-      let next: TameruStore = { ...store, categories };
-      for (const yd of Object.values(store.yearlyData)) {
-        for (const month of Object.keys(yd.monthlyAmounts).map(Number)) {
-          next = updateMonth(next, yd.year, month, (prev) => {
-            if (!(action.id in prev)) return prev;
-            const rest = { ...prev };
-            delete rest[action.id];
-            return rest;
-          });
-        }
-      }
-      return next;
+    case "removeAccount": {
+      const target = store.accounts.find((a) => a.id === action.accountId);
+      if (!target) return store;
+      const next = { ...store, accounts: store.accounts.filter((a) => a.id !== action.accountId) };
+      return removeAmounts(next, new Set(target.holdings.map((h) => h.id)));
+    }
+
+    case "addHolding":
+      return mapAccounts(store, (a) =>
+        a.id === action.accountId && a.holdings.length < MAX_HOLDINGS_PER_ACCOUNT
+          ? { ...a, holdings: [...a.holdings, action.holding] }
+          : a,
+      );
+
+    case "updateHolding":
+      return mapAccounts(store, (a) => {
+        if (!a.holdings.some((h) => h.id === action.holdingId)) return a;
+        return {
+          ...a,
+          holdings: a.holdings.map((h) => {
+            if (h.id !== action.holdingId) return h;
+            const next = { ...h, ...action.patch };
+            // 資産クラスだけ変更された場合は地域を自動補完
+            if (action.patch.assetClass && !action.patch.region) {
+              next.region = suggestRegion(next.assetClass, h.region);
+            }
+            return next;
+          }),
+        };
+      });
+
+    case "removeHolding": {
+      const next = mapAccounts(store, (a) =>
+        a.holdings.some((h) => h.id === action.holdingId)
+          ? { ...a, holdings: a.holdings.filter((h) => h.id !== action.holdingId) }
+          : a,
+      );
+      return removeAmounts(next, new Set([action.holdingId]));
     }
 
     case "setAmount":
       return updateMonth(store, action.year, action.month, (prev) => {
         if (action.value === null) {
-          if (!(action.categoryId in prev)) return prev;
+          if (!(action.holdingId in prev)) return prev;
           const rest = { ...prev };
-          delete rest[action.categoryId];
+          delete rest[action.holdingId];
           return rest;
         }
-        if (prev[action.categoryId] === action.value) return prev;
-        return { ...prev, [action.categoryId]: action.value };
+        if (prev[action.holdingId] === action.value) return prev;
+        return { ...prev, [action.holdingId]: action.value };
       });
 
     case "copyPreviousMonth": {
       const src = shiftMonth(action.year, action.month, -1);
       const srcAmounts = getMonthAmounts(store, src.year, src.month) ?? {};
       const copied: Record<string, number> = {};
-      for (const c of store.categories) {
-        if (typeof srcAmounts[c.id] === "number") copied[c.id] = srcAmounts[c.id];
+      for (const h of allHoldings(store)) {
+        if (typeof srcAmounts[h.id] === "number") copied[h.id] = srcAmounts[h.id];
       }
       return updateMonth(store, action.year, action.month, () => copied);
     }
   }
+}
+
+function mapAccounts(store: TameruStore, fn: (a: AssetAccount) => AssetAccount): TameruStore {
+  let changed = false;
+  const accounts = store.accounts.map((a) => {
+    const next = fn(a);
+    if (next !== a) changed = true;
+    return next;
+  });
+  return changed ? { ...store, accounts } : store;
+}
+
+/** 指定した内訳IDの金額を全年度から削除する */
+function removeAmounts(store: TameruStore, holdingIds: Set<string>): TameruStore {
+  let next = store;
+  for (const yd of Object.values(store.yearlyData)) {
+    for (const month of Object.keys(yd.monthlyAmounts).map(Number)) {
+      next = updateMonth(next, yd.year, month, (prev) => {
+        if (!Object.keys(prev).some((id) => holdingIds.has(id))) return prev;
+        return Object.fromEntries(Object.entries(prev).filter(([id]) => !holdingIds.has(id)));
+      });
+    }
+  }
+  return next;
 }
 
 /** 月データを不変更新する。空になった月・年はキーごと削除してストレージを軽く保つ。 */
