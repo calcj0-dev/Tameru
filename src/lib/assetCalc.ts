@@ -121,10 +121,21 @@ export interface TrendPoint {
   month: number;
   label: string;
   total: number | null; // 未入力月は null（グラフ上は点を打たない）
+  change: Comparison | null; // 前月（1月は前年12月）比。どちらかが未入力なら null
 }
 
 export function buildTrendData(store: TameruStore, year: number): TrendPoint[] {
-  return MONTHS.map((m) => ({ month: m, label: `${m}月`, total: getMonthTotal(store, year, m) }));
+  return MONTHS.map((m) => {
+    const total = getMonthTotal(store, year, m);
+    const prev = shiftMonth(year, m, -1);
+    const prevTotal = getMonthTotal(store, prev.year, prev.month);
+    return {
+      month: m,
+      label: `${m}月`,
+      total,
+      change: total !== null && prevTotal !== null ? compare(total, prev, prevTotal) : null,
+    };
+  });
 }
 
 export interface AllocationSlice {
