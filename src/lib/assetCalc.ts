@@ -77,6 +77,7 @@ export interface YearSummary {
   latest: YearMonth | null;
   total: number;
   monthOverMonth: Comparison | null;
+  yearOverYear: Comparison | null;
   yearToDate: Comparison | null;
 }
 
@@ -89,12 +90,13 @@ function compare(current: number, base: YearMonth, baseTotal: number): Compariso
  * サマリー計算。
  * - 総資産: 選択年で入力のある最新月の合計
  * - 前月比: 最新月 vs その前月（1月の場合は前年12月）
+ * - 前年比: 最新月 vs 前年同月
  * - 年初比: 最新月 vs 前年12月末。前年12月が未入力なら、その年の最初の入力月
  */
 export function computeSummary(store: TameruStore, year: number): YearSummary {
   const latestMonth = getLatestMonth(store, year);
   if (latestMonth === null) {
-    return { latest: null, total: 0, monthOverMonth: null, yearToDate: null };
+    return { latest: null, total: 0, monthOverMonth: null, yearOverYear: null, yearToDate: null };
   }
   const latest = { year, month: latestMonth };
   const total = getMonthTotal(store, year, latestMonth) ?? 0;
@@ -102,6 +104,10 @@ export function computeSummary(store: TameruStore, year: number): YearSummary {
   const prev = shiftMonth(year, latestMonth, -1);
   const prevTotal = getMonthTotal(store, prev.year, prev.month);
   const monthOverMonth = prevTotal === null ? null : compare(total, prev, prevTotal);
+
+  const lastYearSameMonth = getMonthTotal(store, year - 1, latestMonth);
+  const yearOverYear =
+    lastYearSameMonth === null ? null : compare(total, { year: year - 1, month: latestMonth }, lastYearSameMonth);
 
   let yearToDate: Comparison | null = null;
   const lastYearEnd = getMonthTotal(store, year - 1, 12);
@@ -114,7 +120,7 @@ export function computeSummary(store: TameruStore, year: number): YearSummary {
     }
   }
 
-  return { latest, total, monthOverMonth, yearToDate };
+  return { latest, total, monthOverMonth, yearOverYear, yearToDate };
 }
 
 export interface TrendPoint {

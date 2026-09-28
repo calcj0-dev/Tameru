@@ -8,18 +8,25 @@ import { cn } from "@/lib/utils";
 export function SummaryCards({ summary, year }: { summary: YearSummary; year: number }) {
   const { latest } = summary;
   return (
-    <section className="grid gap-4 sm:grid-cols-3" aria-label="サマリー">
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="サマリー">
       <div className="rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 p-5 text-white shadow-lg shadow-teal-700/20">
         <div className="flex items-center gap-2 text-sm text-teal-50/90">
           <Wallet className="size-4" aria-hidden />
           総資産
         </div>
-        <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums">{formatYen(summary.total)}</p>
+        <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums lg:text-2xl xl:text-3xl">
+          {formatYen(summary.total)}
+        </p>
         <p className="mt-1 text-xs text-teal-50/80">
           {latest ? `${latest.year}年${latest.month}月末時点` : `${year}年のデータは未入力です`}
         </p>
       </div>
       <ComparisonCard title="前月比" comparison={summary.monthOverMonth} emptyText="比較できる前月のデータがありません" />
+      <ComparisonCard
+        title="前年比"
+        comparison={summary.yearOverYear}
+        emptyText="比較できる前年同月のデータがありません"
+      />
       <ComparisonCard title="年初比" comparison={summary.yearToDate} emptyText="比較できる年初のデータがありません" />
     </section>
   );
@@ -60,7 +67,7 @@ function ComparisonCard({
         <>
           <p
             className={cn(
-              "mt-2 text-2xl font-bold tracking-tight tabular-nums",
+              "mt-2 text-2xl font-bold tracking-tight tabular-nums lg:text-xl xl:text-2xl",
               tone === "up" && "text-emerald-600",
               tone === "down" && "text-rose-600",
               tone === "flat" && "text-slate-700",
