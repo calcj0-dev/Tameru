@@ -118,24 +118,39 @@ export function computeSummary(store: TameruStore, year: number): YearSummary {
 }
 
 export interface TrendPoint {
+  key: string; // X軸のキー（例: "2026-03"）
+  year: number;
   month: number;
-  label: string;
   total: number | null; // 未入力月は null（グラフ上は点を打たない）
   change: Comparison | null; // 前月（1月は前年12月）比。どちらかが未入力なら null
 }
 
-export function buildTrendData(store: TameruStore, year: number): TrendPoint[] {
-  return MONTHS.map((m) => {
-    const total = getMonthTotal(store, year, m);
-    const prev = shiftMonth(year, m, -1);
-    const prevTotal = getMonthTotal(store, prev.year, prev.month);
-    return {
-      month: m,
-      label: `${m}月`,
-      total,
-      change: total !== null && prevTotal !== null ? compare(total, prev, prevTotal) : null,
-    };
-  });
+/** fromYear 1月 〜 toYear 12月 の月次推移 */
+export function buildTrendData(store: TameruStore, fromYear: number, toYear: number): TrendPoint[] {
+  const points: TrendPoint[] = [];
+  for (let year = fromYear; year <= toYear; year++) {
+    for (const m of MONTHS) {
+      const total = getMonthTotal(store, year, m);
+      const prev = shiftMonth(year, m, -1);
+      const prevTotal = getMonthTotal(store, prev.year, prev.month);
+      points.push({
+        key: `${year}-${String(m).padStart(2, "0")}`,
+        year,
+        month: m,
+        total,
+        change: total !== null && prevTotal !== null ? compare(total, prev, prevTotal) : null,
+      });
+    }
+  }
+  return points;
+}
+
+/** データが入力されている最も古い年（無ければ null） */
+export function getEarliestDataYear(store: TameruStore): number | null {
+  const years = Object.keys(store.yearlyData)
+    .map(Number)
+    .filter((y) => MONTHS.some((m) => hasMonthData(store, y, m)));
+  return years.length > 0 ? Math.min(...years) : null;
 }
 
 export interface AllocationSlice {

@@ -4,12 +4,20 @@ import { Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { AllocationMode, AllocationSlice, YearMonth } from "@/lib/assetCalc";
 import { formatCompactYen, formatYen } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ChartPanel } from "@/components/ChartPanel";
+import { SegmentedControl } from "@/components/SegmentedControl";
 
 const MODES: { value: AllocationMode; label: string }[] = [
   { value: "assetClass", label: "資産クラス" },
   { value: "region", label: "地域" },
   { value: "account", label: "口座" },
 ];
+
+const MODE_LABEL: Record<AllocationMode, string> = {
+  assetClass: "資産クラス別",
+  region: "地域別",
+  account: "口座別",
+};
 
 export function AllocationChart({
   data,
@@ -22,83 +30,87 @@ export function AllocationChart({
   mode: AllocationMode;
   onModeChange: (mode: AllocationMode) => void;
 }) {
+  return (
+    <ChartPanel
+      title="ポートフォリオ構成比"
+      subtitle={
+        latest ? `${latest.year}年${latest.month}月末時点・${MODE_LABEL[mode]}` : "最新月のデータがありません"
+      }
+      captureLabel={`ポートフォリオ構成比-${MODE_LABEL[mode]}`}
+      className="lg:col-span-2"
+      controls={<SegmentedControl value={mode} options={MODES} onChange={onModeChange} ariaLabel="集計単位" />}
+    >
+      {(expanded) => <AllocationPlot data={data} expanded={expanded} />}
+    </ChartPanel>
+  );
+}
+
+function AllocationPlot({ data, expanded }: { data: AllocationSlice[]; expanded: boolean }) {
   const total = data.reduce((acc, s) => acc + s.value, 0);
   const chartData = data.map((s) => ({ ...s, fill: s.color }));
 
+  if (data.length === 0) {
+    return (
+      <div className={cn("grid place-items-center text-sm text-slate-400", expanded ? "h-[50vh]" : "h-72")}>
+        データを入力すると構成比が表示されます
+      </div>
+    );
+  }
+
   return (
-    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="font-semibold text-slate-900">ポートフォリオ構成比</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {latest ? `${latest.year}年${latest.month}月末時点` : "最新月のデータがありません"}
-          </p>
-        </div>
-        <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="集計単位">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => onModeChange(m.value)}
-              aria-pressed={mode === m.value}
-              className={cn(
-                "rounded-md px-2.5 py-1 font-medium transition",
-                mode === m.value ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
-              )}
-            >
-              {m.label}
-            </button>
-          ))}
+    <div
+      className={cn(
+        "mt-4 flex flex-col items-center",
+        expanded ? "gap-8 py-4 md:flex-row md:justify-center md:gap-14" : "gap-5 sm:flex-row lg:flex-col xl:flex-row",
+      )}
+    >
+      <div className={cn("relative shrink-0", expanded ? "size-72 sm:size-96" : "size-48")}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              innerRadius="62%"
+              outerRadius="100%"
+              paddingAngle={data.length > 1 ? 1.5 : 0}
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Tooltip
+              formatter={(value, name) => [formatYen(Number(value) || 0), name]}
+              contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+          <div>
+            <p className={cn("text-slate-500", expanded ? "text-sm" : "text-[11px]")}>合計</p>
+            <p className={cn("font-bold tabular-nums text-slate-900", expanded ? "text-2xl" : "text-base")}>
+              {expanded ? formatYen(total) : formatCompactYen(total)}
+            </p>
+          </div>
         </div>
       </div>
 
-      {data.length === 0 ? (
-        <div className="grid h-72 place-items-center text-sm text-slate-400">データを入力すると構成比が表示されます</div>
-      ) : (
-        <div className="mt-4 flex flex-col items-center gap-5 sm:flex-row lg:flex-col xl:flex-row">
-          <div className="relative size-48 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius="62%"
-                  outerRadius="100%"
-                  paddingAngle={data.length > 1 ? 1.5 : 0}
-                  stroke="none"
-                  isAnimationActive={false}
-                />
-                <Tooltip
-                  formatter={(value, name) => [formatYen(Number(value) || 0), name]}
-                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 13 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-              <div>
-                <p className="text-[11px] text-slate-500">合計</p>
-                <p className="text-base font-bold tabular-nums text-slate-900">{formatCompactYen(total)}</p>
-              </div>
-            </div>
-          </div>
-
-          <ul className="w-full min-w-0 space-y-2">
-            {data.map((s) => (
-              <li key={s.id} className="flex items-center gap-2 text-sm">
-                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} aria-hidden />
-                <span className="min-w-0 flex-1 truncate text-slate-700" title={s.name}>
-                  {s.name}
-                </span>
-                <span className="tabular-nums text-slate-500">{formatYen(s.value)}</span>
-                <span className="w-14 text-right font-semibold tabular-nums text-slate-900">
-                  {(s.ratio * 100).toFixed(1)}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+      <ul className={cn("w-full min-w-0", expanded ? "max-w-md space-y-3" : "space-y-2")}>
+        {data.map((s) => (
+          <li key={s.id} className={cn("flex items-center gap-2", expanded ? "text-base" : "text-sm")}>
+            <span
+              className={cn("shrink-0 rounded-full", expanded ? "size-3" : "size-2.5")}
+              style={{ backgroundColor: s.color }}
+              aria-hidden
+            />
+            <span className="min-w-0 flex-1 break-words leading-snug text-slate-700">
+              {s.name}
+            </span>
+            <span className="tabular-nums text-slate-500">{formatYen(s.value)}</span>
+            <span className={cn("text-right font-semibold tabular-nums text-slate-900", expanded ? "w-16" : "w-14")}>
+              {(s.ratio * 100).toFixed(1)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

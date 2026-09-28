@@ -2,24 +2,36 @@
 
 import { useMemo, useState } from "react";
 import { useTameruStore } from "@/hooks/useTameruStore";
-import { buildAllocationData, buildTrendData, computeSummary, type AllocationMode } from "@/lib/assetCalc";
+import {
+  buildAllocationData,
+  buildTrendData,
+  computeSummary,
+  getEarliestDataYear,
+  type AllocationMode,
+} from "@/lib/assetCalc";
 import { Header } from "@/components/Header";
 import { SummaryCards } from "@/components/SummaryCards";
 import { AssetTable } from "@/components/AssetTable";
-import { TrendChart } from "@/components/TrendChart";
+import { TrendChart, type TrendRange } from "@/components/TrendChart";
 import { AllocationChart } from "@/components/AllocationChart";
 
 export function TameruApp() {
   const { store, isLoaded, saveError, ...actions } = useTameruStore();
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
+  const [trendRange, setTrendRange] = useState<TrendRange>(1);
 
   // new Date() はマウント後（isLoaded=true）にのみ描画へ反映されるので Hydration 差分は起きない
   const currentYear = new Date().getFullYear();
   const year = selectedYear ?? currentYear;
 
   const summary = useMemo(() => computeSummary(store, year), [store, year]);
-  const trend = useMemo(() => buildTrendData(store, year), [store, year]);
+  // 推移グラフは選択中の年を終点に、指定年数分（全期間はデータのある最古の年から）を表示
+  const trend = useMemo(() => {
+    const fromYear =
+      trendRange === "all" ? Math.min(getEarliestDataYear(store) ?? year, year) : year - trendRange + 1;
+    return buildTrendData(store, fromYear, year);
+  }, [store, year, trendRange]);
   const allocation = useMemo(
     () =>
       summary.latest ? buildAllocationData(store, summary.latest.year, summary.latest.month, allocationMode) : [],
@@ -40,7 +52,7 @@ export function TameruApp() {
           actions={actions}
         />
         <div className="grid gap-6 lg:grid-cols-5">
-          <TrendChart data={trend} year={year} />
+          <TrendChart data={trend} range={trendRange} onRangeChange={setTrendRange} />
           <AllocationChart
             data={allocation}
             latest={summary.latest}
