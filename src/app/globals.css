@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* マウス等でホバーできる端末のみ（タッチ端末ではホバーで出すUIを常時表示にする） */
+@custom-variant can-hover (@media (hover: hover));
+
 :root {
   --background: #f6f8f8;
   --foreground: #0f172a;

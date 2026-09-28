@@ -76,7 +76,8 @@ export function sanitizeStore(raw: unknown): TameruStore | null {
   if (!isObject(raw) || !isObject(raw.yearlyData)) return null;
 
   let accounts: AssetAccount[];
-  if (Array.isArray(raw.accounts) && raw.accounts.every((a) => !isObject(a) || Array.isArray(a.holdings))) {
+  // holdings を持つ口座が1つでもあれば v3（一部が壊れていても v2 と誤判定して内訳を失わないように）
+  if (Array.isArray(raw.accounts) && (raw.accounts.length === 0 || raw.accounts.some((a) => isObject(a) && Array.isArray(a.holdings)))) {
     accounts = raw.accounts.filter(isObject).flatMap((a) => {
       if (typeof a.id !== "string" || typeof a.name !== "string" || !Array.isArray(a.holdings)) return [];
       const holdings = a.holdings.filter(isObject).flatMap((h): Holding[] =>

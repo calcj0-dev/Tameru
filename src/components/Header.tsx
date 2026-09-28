@@ -50,13 +50,17 @@ export function Header({ year, currentYear, onYearChange, saveError }: HeaderPro
 
         <div
           className={cn(
-            "hidden items-center gap-1.5 text-xs md:flex",
-            saveError ? "text-rose-600" : "text-slate-500",
+            "items-center gap-1.5 text-xs",
+            // 保存失敗はスマホでも必ず表示する
+            saveError ? "flex font-medium text-rose-600" : "hidden text-slate-500 md:flex",
           )}
-          title="データはこのブラウザ内（LocalStorage）にのみ保存されます"
+          title={saveError ? "保存に失敗しました。ブラウザの保存領域がいっぱいか、保存が禁止されている可能性があります" : "データはこのブラウザ内（LocalStorage）にのみ保存されます"}
+          role={saveError ? "alert" : undefined}
         >
-          {saveError ? <TriangleAlert className="size-3.5" /> : <HardDrive className="size-3.5" />}
-          {saveError ? "保存に失敗しました" : "この端末に自動保存"}
+          {saveError ? <TriangleAlert className="size-4" /> : <HardDrive className="size-3.5" />}
+          <span className={saveError ? "hidden sm:inline" : undefined}>
+            {saveError ? "保存に失敗しました" : "この端末に自動保存"}
+          </span>
         </div>
       </div>
     </header>

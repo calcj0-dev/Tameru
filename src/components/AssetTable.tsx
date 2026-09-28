@@ -53,12 +53,14 @@ export function AssetTable({ store, year, highlightMonth, actions }: AssetTableP
     if (!target) return;
     pendingFocus.current = null;
     const selector =
-      target.kind === "account" ? `input[data-account-name="${target.id}"]` : `input[data-holding-memo="${target.id}"]`;
+      target.kind === "account"
+        ? `input[data-account-name="${CSS.escape(target.id)}"]`
+        : `input[data-holding-memo="${CSS.escape(target.id)}"]`;
     scrollRef.current?.querySelector<HTMLInputElement>(selector)?.focus();
   }, [accounts]);
 
   const focusCell = (holdingId: string, month: number) => {
-    const el = scrollRef.current?.querySelector<HTMLInputElement>(`input[data-cell="${holdingId}:${month}"]`);
+    const el = scrollRef.current?.querySelector<HTMLInputElement>(`input[data-cell="${CSS.escape(`${holdingId}:${month}`)}"]`);
     if (!el) return false;
     el.focus();
     return true;
@@ -277,7 +279,7 @@ export function AssetTable({ store, year, highlightMonth, actions }: AssetTableP
                           onClick={() => handleRemoveAccount(account)}
                           aria-label={`口座「${account.name || "名称未設定"}」を削除`}
                           title="口座を削除"
-                          className="grid size-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:text-rose-600 sm:opacity-0 sm:group-hover/account:opacity-100 sm:focus:opacity-100"
+                          className="grid size-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 focus:text-rose-600 can-hover:opacity-0 can-hover:group-hover/account:opacity-100 can-hover:focus:opacity-100"
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -353,7 +355,7 @@ export function AssetTable({ store, year, highlightMonth, actions }: AssetTableP
                               disabled={account.holdings.length <= 1}
                               aria-label={`内訳「${holding.memo || "メモなし"}」を削除`}
                               title={account.holdings.length <= 1 ? "最後の内訳は削除できません（口座ごと削除してください）" : "内訳を削除"}
-                              className="grid size-7 shrink-0 place-items-center rounded-md text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 focus:text-rose-600 disabled:invisible sm:opacity-0 sm:group-hover/holding:opacity-100 sm:focus:opacity-100"
+                              className="grid size-7 shrink-0 place-items-center rounded-md text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 focus:text-rose-600 disabled:invisible can-hover:opacity-0 can-hover:group-hover/holding:opacity-100 can-hover:focus:opacity-100"
                             >
                               <Trash2 className="size-4" />
                             </button>
