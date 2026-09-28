@@ -1,5 +1,5 @@
 /** 資産クラス（何に投資しているか）。表示名・色は src/lib/constants.ts で定義 */
-export type AssetClassId = "cash" | "stock" | "bond" | "reit" | "gold" | "crypto" | "other";
+export type AssetClassId = "cash" | "stock" | "fund" | "bond" | "gold" | "crypto" | "other";
 
 /** 地域（どこに投資しているか） */
 export type RegionId = "japan" | "us" | "developed" | "emerging" | "global" | "none";

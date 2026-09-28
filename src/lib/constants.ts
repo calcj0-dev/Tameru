@@ -19,8 +19,8 @@ interface Option<T extends string> {
 export const ASSET_CLASSES: readonly Option<AssetClassId>[] = [
   { id: "cash", label: "現金・預金", shortLabel: "現金", color: "#0ea5e9" },
   { id: "stock", label: "株式", color: "#6366f1" },
+  { id: "fund", label: "投資信託", color: "#0d9488" },
   { id: "bond", label: "債券", color: "#84cc16" },
-  { id: "reit", label: "REIT・不動産", shortLabel: "REIT", color: "#f97316" },
   { id: "gold", label: "ゴールド", color: "#f59e0b" },
   { id: "crypto", label: "暗号資産", color: "#8b5cf6" },
   { id: "other", label: "その他", color: "#64748b" },

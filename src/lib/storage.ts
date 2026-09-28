@@ -53,14 +53,14 @@ export function createInitialStore(): TameruStore {
         id: generateId("acc"),
         name: "SBI証券",
         holdings: [
-          createHolding({ memo: "全世界株式", assetClass: "stock", region: "global" }),
+          createHolding({ memo: "オルカン", assetClass: "fund", region: "global" }),
           createHolding({ memo: "預り金", assetClass: "cash", region: "japan" }),
         ],
       },
       {
         id: generateId("acc"),
         name: "楽天証券",
-        holdings: [createHolding({ memo: "S&P500", assetClass: "stock", region: "us" })],
+        holdings: [createHolding({ memo: "S&P500", assetClass: "fund", region: "us" })],
       },
     ],
     yearlyData: {},
@@ -180,11 +180,8 @@ function migrateV2Category(category: unknown, name: string): Classified {
       return { assetClass: "gold", region: "none", memo };
     case "crypto":
       return { assetClass: "crypto", region: "none", memo };
-    case "fund": {
-      // 投資信託は中身が分からないため名称から推測（不明なら「その他」のまま）
-      const guessed = guessFromName(name);
-      return { ...guessed, memo };
-    }
+    case "fund":
+      return { assetClass: "fund", region: guessRegion(name), memo };
     default:
       return { ...guessFromName(name), memo };
   }
@@ -194,10 +191,12 @@ function guessFromName(name: string): Classified {
   if (/銀行|預金|現金|財布|貯金/.test(name)) return { assetClass: "cash", region: "japan", memo: "" };
   if (/純金|金積立|ゴールド|gold/i.test(name)) return { assetClass: "gold", region: "none", memo: "" };
   if (/暗号|仮想通貨|ビットコイン|BTC|ETH/i.test(name)) return { assetClass: "crypto", region: "none", memo: "" };
-  if (/REIT|リート|不動産/i.test(name)) return { assetClass: "reit", region: guessRegion(name), memo: "" };
   if (/債/.test(name)) return { assetClass: "bond", region: guessRegion(name), memo: "" };
   const region = guessRegion(name);
-  if (region !== "none" || /株|オルカン|S&P|インデックス/i.test(name)) {
+  if (/投信|投資信託|ファンド|オルカン|インデックス|eMAXIS|NISA|iDeCo/i.test(name)) {
+    return { assetClass: "fund", region, memo: "" };
+  }
+  if (region !== "none" || /株|S&P/i.test(name)) {
     return { assetClass: "stock", region, memo: "" };
   }
   return { assetClass: DEFAULT_ASSET_CLASS, region: DEFAULT_REGION, memo: "" };
