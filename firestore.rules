@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// TAMERU の Firestore セキュリティルール
+// Firebase コンソール →「Firestore Database」→「ルール」に貼り付けて「公開」する。
+//
+// users/{uid}: ユーザー1人につき1ドキュメント（データ全体の JSON を payload に保存）
+// - 読み書き・削除はログインした本人のみ
+// - rev（リビジョン）は必ず1ずつ増やす（他端末の更新を上書きしないための安全策）
+// - 項目・型・サイズを制限し、想定外のデータを書き込ませない
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function validData() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['schemaVersion', 'rev', 'updatedAt', 'deviceId', 'payload'])
+          && d.schemaVersion is int && d.schemaVersion >= 1
+          && d.rev is int
+          && d.updatedAt == request.time
+          && d.deviceId is string && d.deviceId.size() <= 64
+          && d.payload is string && d.payload.size() <= 900000;
+      }
+
+      allow read, delete: if isOwner();
+      allow create: if isOwner() && validData() && request.resource.data.rev == 1;
+      allow update: if isOwner() && validData() && request.resource.data.rev == resource.data.rev + 1;
+    }
+
+    // それ以外はすべて拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

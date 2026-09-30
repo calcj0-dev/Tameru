@@ -8,7 +8,7 @@
  * - その他の同一オリジンの GET: キャッシュを返しつつ裏で更新（stale-while-revalidate）
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGE_CACHE = `tameru-pages-${VERSION}`;
 const STATIC_CACHE = `tameru-static-${VERSION}`;
 const ASSET_CACHE = `tameru-assets-${VERSION}`;
@@ -35,6 +35,8 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Firebase のログイン処理（/__/auth, /__/firebase）はキャッシュせず常にネットワークへ
+  if (url.pathname.startsWith("/__/")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request));

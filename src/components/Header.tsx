@@ -1,25 +1,26 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, HardDrive, PiggyBank, TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
+import { ChevronLeft, ChevronRight, PiggyBank } from "lucide-react";
 import { MAX_YEAR, MIN_YEAR } from "@/lib/constants";
-import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   year: number;
   currentYear: number;
   onYearChange: (year: number) => void;
-  saveError: boolean;
+  /** 右端に置く要素（同期メニュー） */
+  right: ReactNode;
 }
 
-export function Header({ year, currentYear, onYearChange, saveError }: HeaderProps) {
+export function Header({ year, currentYear, onYearChange, right }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:gap-3 sm:px-6">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-xl bg-teal-600 text-white shadow-sm shadow-teal-600/30">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-teal-600 text-white shadow-sm shadow-teal-600/30">
             <PiggyBank className="size-5" aria-hidden />
           </div>
-          <div className="leading-tight">
+          <div className="hidden leading-tight min-[440px]:block">
             <h1 className="text-lg font-bold tracking-[0.12em] text-slate-900">TAMERU</h1>
             <p className="hidden text-[11px] text-slate-500 sm:block">資産を、スプレッドシート感覚で積み上げる</p>
           </div>
@@ -39,7 +40,7 @@ export function Header({ year, currentYear, onYearChange, saveError }: HeaderPro
             <YearButton label="前の年" disabled={year <= MIN_YEAR} onClick={() => onYearChange(year - 1)}>
               <ChevronLeft className="size-4" />
             </YearButton>
-            <span className="min-w-[5.5rem] text-center text-sm font-semibold tabular-nums text-slate-800" aria-live="polite">
+            <span className="min-w-[4.5rem] text-center text-sm font-semibold tabular-nums text-slate-800 sm:min-w-[5.5rem]" aria-live="polite">
               {year}年
             </span>
             <YearButton label="次の年" disabled={year >= MAX_YEAR} onClick={() => onYearChange(year + 1)}>
@@ -48,20 +49,7 @@ export function Header({ year, currentYear, onYearChange, saveError }: HeaderPro
           </div>
         </div>
 
-        <div
-          className={cn(
-            "items-center gap-1.5 text-xs",
-            // 保存失敗はスマホでも必ず表示する
-            saveError ? "flex font-medium text-rose-600" : "hidden text-slate-500 md:flex",
-          )}
-          title={saveError ? "保存に失敗しました。ブラウザの保存領域がいっぱいか、保存が禁止されている可能性があります" : "データはこのブラウザ内（LocalStorage）にのみ保存されます"}
-          role={saveError ? "alert" : undefined}
-        >
-          {saveError ? <TriangleAlert className="size-4" /> : <HardDrive className="size-3.5" />}
-          <span className={saveError ? "hidden sm:inline" : undefined}>
-            {saveError ? "保存に失敗しました" : "この端末に自動保存"}
-          </span>
-        </div>
+        <div className="flex justify-end">{right}</div>
       </div>
     </header>
   );

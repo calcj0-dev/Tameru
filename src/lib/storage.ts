@@ -15,7 +15,7 @@ export const STORAGE_KEY = "tameru:store";
 // v1: { categories: {id, name}[] }
 // v2: { accounts: {id, name, category}[] }
 // v3: { accounts: {id, name, holdings: {id, memo, assetClass, region}[]}[] }
-const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 3;
 
 interface PersistedEnvelope {
   version: number;

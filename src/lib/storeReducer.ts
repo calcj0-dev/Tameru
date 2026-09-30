@@ -6,6 +6,7 @@ export type HoldingPatch = Partial<Omit<Holding, "id">>;
 
 export type StoreAction =
   | { type: "hydrate"; store: TameruStore }
+  | { type: "replace"; store: TameruStore } // 同期でクラウドのデータに置き換える
   | { type: "addAccount"; account: AssetAccount }
   | { type: "renameAccount"; accountId: string; name: string }
   | { type: "removeAccount"; accountId: string }
@@ -24,11 +25,17 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
   if (action.type === "hydrate") {
     return { store: action.store, isLoaded: true };
   }
+  if (action.type === "replace") {
+    return { ...state, store: action.store };
+  }
   const next = applyAction(state.store, action);
   return next === state.store ? state : { ...state, store: next };
 }
 
-function applyAction(store: TameruStore, action: Exclude<StoreAction, { type: "hydrate" }>): TameruStore {
+function applyAction(
+  store: TameruStore,
+  action: Exclude<StoreAction, { type: "hydrate" } | { type: "replace" }>,
+): TameruStore {
   switch (action.type) {
     case "addAccount":
       if (store.accounts.length >= MAX_ACCOUNTS) return store;

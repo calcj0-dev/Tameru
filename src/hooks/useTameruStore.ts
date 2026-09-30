@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useState } from "react";
+import type { TameruStore } from "@/types/asset";
 import { storeReducer, type HoldingPatch, type StoreState } from "@/lib/storeReducer";
 import {
   createEmptyStore,
@@ -74,6 +75,10 @@ export function useTameruStore(adapter: StorageAdapter = localStorageAdapter) {
       },
       copyPreviousMonth(year: number, month: number) {
         dispatch({ type: "copyPreviousMonth", year, month });
+      },
+      /** データ全体を置き換える（クラウド同期用） */
+      replaceStore(store: TameruStore) {
+        dispatch({ type: "replace", store });
       },
     }),
     [],

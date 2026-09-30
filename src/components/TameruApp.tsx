@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useTameruStore } from "@/hooks/useTameruStore";
+import { useCloudSync } from "@/hooks/useCloudSync";
+import { SyncMenu } from "@/components/SyncMenu";
+import { InitialSyncDialog } from "@/components/InitialSyncDialog";
 import {
   buildAllocationData,
   buildTrendData,
@@ -17,6 +20,7 @@ import { AllocationChart } from "@/components/AllocationChart";
 
 export function TameruApp() {
   const { store, isLoaded, saveError, ...actions } = useTameruStore();
+  const sync = useCloudSync({ store, isLoaded, replaceStore: actions.replaceStore });
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
   const [trendRange, setTrendRange] = useState<TrendRange>(1);
@@ -42,7 +46,21 @@ export function TameruApp() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <Header year={year} currentYear={currentYear} onYearChange={setSelectedYear} saveError={saveError} />
+      <Header
+        year={year}
+        currentYear={currentYear}
+        onYearChange={setSelectedYear}
+        right={
+          <SyncMenu
+            state={sync.state}
+            saveError={saveError}
+            onSignIn={sync.signIn}
+            onSignOut={sync.signOut}
+            onDeleteAccount={sync.deleteAccount}
+          />
+        }
+      />
+      {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         <SummaryCards summary={summary} year={year} />
         <AssetTable
@@ -62,7 +80,9 @@ export function TameruApp() {
         </div>
       </main>
       <footer className="px-4 py-6 text-center text-xs text-slate-400">
-        TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません
+        {sync.state.status === "signed-out"
+          ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
+          : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"}
       </footer>
     </div>
   );
