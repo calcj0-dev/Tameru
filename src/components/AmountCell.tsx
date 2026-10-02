@@ -83,7 +83,9 @@ export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: A
           e.currentTarget.blur();
         }
       }}
-      className="w-30 rounded-md bg-transparent px-2.5 py-2 text-right text-sm tabular-nums text-slate-800 outline-none transition placeholder:text-slate-300 hover:bg-slate-100/70 focus:bg-white focus:ring-2 focus:ring-teal-500"
+      // 0円は薄いグレーで表示（入力された金額を目立たせる）
+      data-zero={draft === null && value === 0 ? "" : undefined}
+      className="w-30 data-[zero]:text-slate-400 rounded-md bg-transparent px-2.5 py-2 text-right text-sm tabular-nums text-slate-800 outline-none transition placeholder:text-slate-300 hover:bg-slate-100/70 focus:bg-white focus:ring-2 focus:ring-teal-500"
     />
   );
 }

@@ -28,14 +28,14 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
   if (action.type === "replace") {
     return { ...state, store: action.store };
   }
-  const next = applyAction(state.store, action);
+  const next = applyEditAction(state.store, action);
   return next === state.store ? state : { ...state, store: next };
 }
 
-function applyAction(
-  store: TameruStore,
-  action: Exclude<StoreAction, { type: "hydrate" } | { type: "replace" }>,
-): TameruStore {
+/** 入力表で行う編集操作（下書きにも本データにも同じ処理を使う） */
+export type EditAction = Exclude<StoreAction, { type: "hydrate" } | { type: "replace" }>;
+
+export function applyEditAction(store: TameruStore, action: EditAction): TameruStore {
   switch (action.type) {
     case "addAccount":
       if (store.accounts.length >= MAX_ACCOUNTS) return store;
@@ -106,6 +106,27 @@ function applyAction(
       return updateMonth(store, action.year, action.month, () => copied);
     }
   }
+}
+
+/**
+ * 1件以上入力がある月の空欄を 0 で埋める（全期間が対象）。
+ * まったく入力のない月（未来の月など）は空欄のまま残す。
+ * 入力途中の月が「最新月」として集計され、総資産が実際より少なく見えるのを防ぐため保存時に使う。
+ */
+export function fillEmptyWithZero(store: TameruStore): TameruStore {
+  const holdingIds = allHoldings(store).map((h) => h.id);
+  let next = store;
+  for (const yd of Object.values(store.yearlyData)) {
+    for (const month of Object.keys(yd.monthlyAmounts).map(Number)) {
+      next = updateMonth(next, yd.year, month, (prev) => {
+        if (!holdingIds.some((id) => typeof prev[id] === "number")) return prev;
+        const missing = holdingIds.filter((id) => typeof prev[id] !== "number");
+        if (missing.length === 0) return prev;
+        return { ...prev, ...Object.fromEntries(missing.map((id) => [id, 0])) };
+      });
+    }
+  }
+  return next;
 }
 
 function mapAccounts(store: TameruStore, fn: (a: AssetAccount) => AssetAccount): TameruStore {

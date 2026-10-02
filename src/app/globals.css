@@ -21,3 +21,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Tailwind v4 はボタンのカーソルが矢印のため、押せるものは指カーソルにする（押せない状態は矢印のまま） */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}

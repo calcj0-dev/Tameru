@@ -32,12 +32,7 @@ interface TrendChartProps {
 export function TrendChart({ data, range, onRangeChange }: TrendChartProps) {
   const first = data[0];
   const last = data[data.length - 1];
-  const period =
-    first && last
-      ? first.year === last.year
-        ? `${first.year}年1月〜12月`
-        : `${first.year}年1月〜${last.year}年12月`
-      : "";
+  const period = first && last ? `${first.year}年${first.month}月〜${last.year}年${last.month}月` : "";
 
   return (
     <ChartPanel
@@ -128,14 +123,21 @@ function TrendPlot({ data, expanded }: { data: TrendPoint[]; expanded: boolean }
 }
 
 /**
- * X軸の目盛り。1年表示は各月、複数年は各年の1月（2年以内は7月も）に目盛りを置く。
- * 年数が多い場合は間引く。
+ * X軸の目盛り。1年表示は各月（年が変わる1月は「2026年」と表示）、
+ * 複数年は各年の1月（2年以内は7月も）に目盛りを置く。年数が多い場合は間引く。
  */
 function xAxisConfig(data: TrendPoint[]): { ticks: string[] | undefined; format: (key: string) => string } {
   const byKey = new Map(data.map((d) => [d.key, d]));
   const years = data.length / 12;
   if (years <= 1) {
-    return { ticks: undefined, format: (key) => `${byKey.get(key)?.month ?? ""}月` };
+    return {
+      ticks: undefined,
+      format: (key) => {
+        const p = byKey.get(key);
+        if (!p) return "";
+        return p.month === 1 ? `${p.year}年` : `${p.month}月`;
+      },
+    };
   }
   const yearStep = Math.max(1, Math.ceil(years / 8));
   const firstYear = data[0]?.year ?? 0;

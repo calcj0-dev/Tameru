@@ -9,7 +9,7 @@ import {
   buildAllocationData,
   buildTrendData,
   computeSummary,
-  getEarliestDataYear,
+  trendPeriod,
   type AllocationMode,
 } from "@/lib/assetCalc";
 import { Header } from "@/components/Header";
@@ -19,23 +19,24 @@ import { TrendChart, type TrendRange } from "@/components/TrendChart";
 import { AllocationChart } from "@/components/AllocationChart";
 
 export function TameruApp() {
-  const { store, isLoaded, saveError, ...actions } = useTameruStore();
-  const sync = useCloudSync({ store, isLoaded, replaceStore: actions.replaceStore });
+  const { store, isLoaded, saveError, replaceStore } = useTameruStore();
+  const sync = useCloudSync({ store, isLoaded, replaceStore });
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
   const [trendRange, setTrendRange] = useState<TrendRange>(1);
 
   // new Date() はマウント後（isLoaded=true）にのみ描画へ反映されるので Hydration 差分は起きない
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  // 年の切り替えは入力表だけに影響する。サマリー・推移・構成比は常に最新の値を使う
   const year = selectedYear ?? currentYear;
 
-  const summary = useMemo(() => computeSummary(store, year), [store, year]);
-  // 推移グラフは選択中の年を終点に、指定年数分（全期間はデータのある最古の年から）を表示
+  const summary = useMemo(() => computeSummary(store), [store]);
   const trend = useMemo(() => {
-    const fromYear =
-      trendRange === "all" ? Math.min(getEarliestDataYear(store) ?? year, year) : year - trendRange + 1;
-    return buildTrendData(store, fromYear, year);
-  }, [store, year, trendRange]);
+    const { from, to } = trendPeriod(store, { year: currentYear, month: currentMonth }, trendRange);
+    return buildTrendData(store, from, to);
+  }, [store, currentYear, currentMonth, trendRange]);
   const allocation = useMemo(
     () =>
       summary.latest ? buildAllocationData(store, summary.latest.year, summary.latest.month, allocationMode) : [],
@@ -47,9 +48,6 @@ export function TameruApp() {
   return (
     <div className="flex min-h-full flex-col">
       <Header
-        year={year}
-        currentYear={currentYear}
-        onYearChange={setSelectedYear}
         right={
           <SyncMenu
             state={sync.state}
@@ -62,12 +60,14 @@ export function TameruApp() {
       />
       {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
-        <SummaryCards summary={summary} year={year} />
+        <SummaryCards summary={summary} />
         <AssetTable
-          store={store}
+          savedStore={store}
           year={year}
-          highlightMonth={summary.latest?.month ?? null}
-          actions={actions}
+          currentYear={currentYear}
+          onYearChange={setSelectedYear}
+          highlightMonth={summary.latest?.year === year ? summary.latest.month : null}
+          onSave={replaceStore}
         />
         <div className="grid gap-6 lg:grid-cols-5">
           <TrendChart data={trend} range={trendRange} onRangeChange={setTrendRange} />
@@ -93,8 +93,8 @@ function LoadingSkeleton() {
     <div className="flex min-h-full flex-col" aria-busy="true">
       <div className="h-[61px] border-b border-slate-200/80 bg-white" />
       <div className="mx-auto w-full max-w-7xl animate-pulse space-y-6 px-4 py-6 sm:px-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[0, 1, 2].map((i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-32 rounded-2xl bg-slate-200/70" />
           ))}
         </div>

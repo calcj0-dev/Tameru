@@ -66,6 +66,36 @@ export function getLatestMonth(store: TameruStore, year: number): number | null 
   return null;
 }
 
+/** 入力のある年（昇順） */
+function getDataYears(store: TameruStore): number[] {
+  return Object.keys(store.yearlyData)
+    .map(Number)
+    .filter((y) => MONTHS.some((m) => hasMonthData(store, y, m)))
+    .sort((a, b) => a - b);
+}
+
+/** 全期間で入力のある最新の年月（無ければ null） */
+export function getLatestDataMonth(store: TameruStore): YearMonth | null {
+  const years = getDataYears(store);
+  const year = years[years.length - 1];
+  if (year === undefined) return null;
+  const month = getLatestMonth(store, year);
+  return month === null ? null : { year, month };
+}
+
+/** 全期間で入力のある最も古い年月（無ければ null） */
+export function getEarliestDataMonth(store: TameruStore): YearMonth | null {
+  const year = getDataYears(store)[0];
+  if (year === undefined) return null;
+  const month = MONTHS.find((m) => hasMonthData(store, year, m));
+  return month === undefined ? null : { year, month };
+}
+
+/** a < b なら負、同じなら 0、a > b なら正 */
+export function compareYearMonth(a: YearMonth, b: YearMonth): number {
+  return a.year * 12 + a.month - (b.year * 12 + b.month);
+}
+
 export interface Comparison {
   base: YearMonth;
   baseTotal: number;
@@ -87,18 +117,18 @@ function compare(current: number, base: YearMonth, baseTotal: number): Compariso
 }
 
 /**
- * サマリー計算。
- * - 総資産: 選択年で入力のある最新月の合計
+ * サマリー計算（入力表で選んでいる年に関係なく、常に全期間の最新月を基準にする）。
+ * - 総資産: 入力のある最新月の合計
  * - 前月比: 最新月 vs その前月（1月の場合は前年12月）
  * - 前年比: 最新月 vs 前年同月
  * - 年初比: 最新月 vs 前年12月末。前年12月が未入力なら、その年の最初の入力月
  */
-export function computeSummary(store: TameruStore, year: number): YearSummary {
-  const latestMonth = getLatestMonth(store, year);
-  if (latestMonth === null) {
+export function computeSummary(store: TameruStore): YearSummary {
+  const latest = getLatestDataMonth(store);
+  if (latest === null) {
     return { latest: null, total: 0, monthOverMonth: null, yearOverYear: null, yearToDate: null };
   }
-  const latest = { year, month: latestMonth };
+  const { year, month: latestMonth } = latest;
   const total = getMonthTotal(store, year, latestMonth) ?? 0;
 
   const prev = shiftMonth(year, latestMonth, -1);
@@ -131,32 +161,38 @@ export interface TrendPoint {
   change: Comparison | null; // 前月（1月は前年12月）比。どちらかが未入力なら null
 }
 
-/** fromYear 1月 〜 toYear 12月 の月次推移 */
-export function buildTrendData(store: TameruStore, fromYear: number, toYear: number): TrendPoint[] {
+/** from 〜 to（両端を含む）の月次推移 */
+export function buildTrendData(store: TameruStore, from: YearMonth, to: YearMonth): TrendPoint[] {
   const points: TrendPoint[] = [];
-  for (let year = fromYear; year <= toYear; year++) {
-    for (const m of MONTHS) {
-      const total = getMonthTotal(store, year, m);
-      const prev = shiftMonth(year, m, -1);
-      const prevTotal = getMonthTotal(store, prev.year, prev.month);
-      points.push({
-        key: `${year}-${String(m).padStart(2, "0")}`,
-        year,
-        month: m,
-        total,
-        change: total !== null && prevTotal !== null ? compare(total, prev, prevTotal) : null,
-      });
-    }
+  const count = compareYearMonth(to, from) + 1;
+  for (let i = 0; i < count; i++) {
+    const { year, month } = shiftMonth(from.year, from.month, i);
+    const total = getMonthTotal(store, year, month);
+    const prev = shiftMonth(year, month, -1);
+    const prevTotal = getMonthTotal(store, prev.year, prev.month);
+    points.push({
+      key: `${year}-${String(month).padStart(2, "0")}`,
+      year,
+      month,
+      total,
+      change: total !== null && prevTotal !== null ? compare(total, prev, prevTotal) : null,
+    });
   }
   return points;
 }
 
-/** データが入力されている最も古い年（無ければ null） */
-export function getEarliestDataYear(store: TameruStore): number | null {
-  const years = Object.keys(store.yearlyData)
-    .map(Number)
-    .filter((y) => MONTHS.some((m) => hasMonthData(store, y, m)));
-  return years.length > 0 ? Math.min(...years) : null;
+/**
+ * 推移グラフの期間。今月（未来の月まで入力があればその月）を終点に、直近 years 年分。
+ * years が "all" の場合は、入力のある最古の月から（最短でも直近12か月）。
+ */
+export function trendPeriod(store: TameruStore, today: YearMonth, years: number | "all"): { from: YearMonth; to: YearMonth } {
+  const latest = getLatestDataMonth(store);
+  const to = latest && compareYearMonth(latest, today) > 0 ? latest : today;
+  const lastYear = shiftMonth(to.year, to.month, -11);
+  if (years !== "all") return { from: shiftMonth(to.year, to.month, -(years * 12 - 1)), to };
+  const earliest = getEarliestDataMonth(store);
+  const from = earliest && compareYearMonth(earliest, lastYear) < 0 ? earliest : lastYear;
+  return { from, to };
 }
 
 export interface AllocationSlice {

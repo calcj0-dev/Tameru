@@ -5,7 +5,7 @@ import type { Comparison, YearSummary } from "@/lib/assetCalc";
 import { formatSignedPercent, formatSignedYen, formatYen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export function SummaryCards({ summary, year }: { summary: YearSummary; year: number }) {
+export function SummaryCards({ summary }: { summary: YearSummary }) {
   const { latest } = summary;
   return (
     <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="サマリー">
@@ -18,7 +18,7 @@ export function SummaryCards({ summary, year }: { summary: YearSummary; year: nu
           {formatYen(summary.total)}
         </p>
         <p className="mt-1 text-xs text-teal-50/80">
-          {latest ? `${latest.year}年${latest.month}月末時点` : `${year}年のデータは未入力です`}
+          {latest ? `${latest.year}年${latest.month}月末時点` : "まだデータが入力されていません"}
         </p>
       </div>
       <ComparisonCard title="前月比" comparison={summary.monthOverMonth} emptyText="比較できる前月のデータがありません" />

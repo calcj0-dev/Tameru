@@ -37,7 +37,7 @@ const STATUS: Record<SyncStatus, { label: string; icon: typeof Cloud; tone: "mut
 
 /**
  * ヘッダー右端の同期メニュー。
- * 未ログイン: 「ログインして同期」ボタン / ログイン中: 同期状態アイコン → メニュー
+ * 未ログイン: 「Google でログイン」ボタン / ログイン中: 同期状態アイコン → メニュー
  */
 export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccount }: SyncMenuProps) {
   const [open, setOpen] = useState(false);
@@ -94,8 +94,8 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
           className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-60"
         >
           {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <LogIn className="size-3.5" />}
-          <span className="hidden sm:inline">ログインして同期</span>
-          <span className="sm:hidden">同期</span>
+          <span className="hidden sm:inline">Google でログイン</span>
+          <span className="sm:hidden">ログイン</span>
         </button>
         {state.error && (
           <span className="hidden max-w-48 text-[11px] leading-tight text-rose-600 md:block" role="alert">
