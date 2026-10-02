@@ -63,6 +63,9 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
 
   const signedIn = state.email !== null && state.status !== "signed-out";
   const s = saveError ? { label: "保存エラー", icon: TriangleAlert, tone: "error" as const } : STATUS[state.status];
+  // ボタンには、正常に同期できているときは「ログイン済み」と表示する（問題があるときだけ状態を表示）。
+  // メニュー内には詳しい状態（同期済み・時刻）を表示する
+  const buttonLabel = !saveError && state.status === "synced" ? "ログイン済み" : s.label;
   const Icon = s.icon;
 
   const run = async (fn: () => Promise<void>) => {
@@ -123,8 +126,8 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
         )}
       >
         <Icon className={cn("size-4", s.tone === "busy" && "animate-spin")} aria-hidden />
-        <span className="hidden sm:inline">{s.label}</span>
-        <span className="sr-only sm:hidden">{s.label}</span>
+        <span className="hidden sm:inline">{buttonLabel}</span>
+        <span className="sr-only sm:hidden">{buttonLabel}</span>
       </button>
 
       {open && (

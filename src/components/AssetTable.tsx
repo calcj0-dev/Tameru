@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, CopyPlus, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CopyPlus, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import type { AssetAccount, AssetClassId, Holding, RegionId, TameruStore } from "@/types/asset";
 import { createEditActions } from "@/lib/storeActions";
 import { applyEditAction, fillEmptyWithZero, type EditAction } from "@/lib/storeReducer";
@@ -10,7 +10,6 @@ import { ASSET_CLASSES, MAX_ACCOUNTS, MAX_HOLDINGS_PER_ACCOUNT, MONTHS, REGIONS,
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AmountCell, type NavDirection } from "@/components/AmountCell";
-import { SegmentedControl } from "@/components/SegmentedControl";
 import { YearSwitcher } from "@/components/YearSwitcher";
 
 interface AssetTableProps {
@@ -27,11 +26,6 @@ interface AssetTableProps {
 type PendingFocus = { kind: "account" | "holding"; id: string };
 
 const STICKY_COL = "sticky left-0 w-52 min-w-52 sm:w-72 sm:min-w-72";
-
-const MODE_OPTIONS = [
-  { value: "view", label: "参照のみ" },
-  { value: "edit", label: "編集" },
-] as const;
 
 const DISCARD_MESSAGE = "保存していない変更があります。変更を破棄しますか？";
 
@@ -58,8 +52,8 @@ function draftReducer(state: DraftState, action: DraftAction): DraftState {
 
 /**
  * 資産入力表。
- * - 参照のみ（既定）: 保存済みのデータを表示するだけ
- * - 編集: 保存済みデータのコピー（下書き）を編集し、「保存」で反映する。「キャンセル」で破棄
+ * - 参照のみ（既定）: 保存済みのデータを表示するだけ。「編集」ボタンで編集を開始
+ * - 編集: 保存済みデータのコピー（下書き）を編集し、「保存」で反映する。「キャンセル」で破棄。どちらも参照のみに戻る
  */
 export function AssetTable({ savedStore, year, currentYear, onYearChange, highlightMonth, onSave }: AssetTableProps) {
   // 下書き。draft=null は参照のみ。開くたびに参照のみから始める（状態は保存しない）
@@ -70,14 +64,8 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
   );
   const editing = draft !== null;
   const store = draft ?? savedStore;
-  const mode = editing ? "edit" : "view";
 
-  const handleModeChange = (next: "view" | "edit") => {
-    if (next === mode) return;
-    if (next === "edit") return dispatchDraft({ type: "start", store: savedStore });
-    if (dirty && !window.confirm(DISCARD_MESSAGE)) return;
-    dispatchDraft({ type: "stop" });
-  };
+  const handleStartEditing = () => dispatchDraft({ type: "start", store: savedStore });
   const handleCancel = () => {
     if (dirty && !window.confirm(DISCARD_MESSAGE)) return;
     dispatchDraft({ type: "stop" });
@@ -224,7 +212,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                 で右へ移動します。入力が終わったら「保存」を押してください（入力がある月の空欄は0円になります）。
               </>
             ) : (
-              "参照のみ表示中です。入力・修正するときは「編集」に切り替えてください。"
+              "各月末時点の残高です。入力・修正するときは「編集」を押してください。"
             )}
           </p>
         </div>
@@ -263,7 +251,16 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
               </button>
             </>
           )}
-          <SegmentedControl value={mode} options={MODE_OPTIONS} onChange={handleModeChange} ariaLabel="表示モード" />
+          {!editing && (
+            <button
+              type="button"
+              onClick={handleStartEditing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700"
+            >
+              <Pencil className="size-4" aria-hidden />
+              編集
+            </button>
+          )}
         </div>
       </div>
 
