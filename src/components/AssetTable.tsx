@@ -416,7 +416,8 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                           scope="row"
                           className={cn(
                             STICKY_COL,
-                            "z-10 border-b border-r border-slate-100 bg-white py-1.5 pl-8 pr-2 text-left font-normal group-hover/holding:bg-slate-50/60",
+                            // 固定列は背景を必ず不透明にする（半透明だと、横スクロールで下に潜った金額が透けて見える）
+                            "z-10 border-b border-r border-slate-100 bg-white py-1.5 pl-8 pr-2 text-left font-normal group-hover/holding:bg-slate-50",
                           )}
                         >
                           {!editing ? (

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PiggyBank } from "lucide-react";
+import { APP_VERSION, COMMIT_SHA } from "@/lib/version";
 
 interface HeaderProps {
   /** 右端に置く要素（同期メニュー） */
@@ -21,7 +22,15 @@ export function Header({ right }: HeaderProps) {
             <p className="hidden text-[11px] text-slate-500 sm:block">資産を、スプレッドシート感覚で積み上げる</p>
           </div>
         </div>
-        <div className="flex justify-end">{right}</div>
+        <div className="flex items-center justify-end gap-2.5">
+          {right}
+          <span
+            className="text-[11px] tabular-nums text-slate-400"
+            title={COMMIT_SHA ? `バージョン ${APP_VERSION}（${COMMIT_SHA}）` : `バージョン ${APP_VERSION}`}
+          >
+            v{APP_VERSION}
+          </span>
+        </div>
       </div>
     </header>
   );
