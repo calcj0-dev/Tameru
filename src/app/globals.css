@@ -22,6 +22,12 @@ body {
   font-family: var(--font-sans);
 }
 
+/* フォーカス枠をアプリの色に合わせる（既定の黒い太枠は目立ちすぎるため） */
+:focus-visible {
+  outline: 2px solid #14b8a6;
+  outline-offset: 2px;
+}
+
 /* Tailwind v4 はボタンのカーソルが矢印のため、押せるものは指カーソルにする（押せない状態は矢印のまま） */
 @layer base {
   button:not(:disabled),

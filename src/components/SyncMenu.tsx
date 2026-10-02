@@ -6,6 +6,7 @@ import {
   CloudAlert,
   CloudCheck,
   CloudOff,
+  History,
   HardDrive,
   LoaderCircle,
   LogIn,
@@ -15,16 +16,21 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import type { SyncState, SyncStatus } from "@/lib/sync/cloudSync";
+import { describeBackup, type SyncBackup } from "@/lib/sync/backup";
 import { cn } from "@/lib/utils";
+import { DeleteCloudDialog, LoginIntroDialog, LogoutDialog, RestoreBackupDialog } from "@/components/SyncDialogs";
 
 interface SyncMenuProps {
   state: SyncState;
   saveError: boolean;
-  /** ログインボタンに触れた時点で、ログインの準備を始める */
+  /** 同期で置き換える前のバックアップ（あれば「バックアップから戻す」を表示） */
+  backup: SyncBackup | null;
+  /** ログインの準備（Firebase の読み込み）を先に始める */
   onPrepareSignIn: () => void;
   onSignIn: () => Promise<void>;
-  onSignOut: () => Promise<void>;
+  onSignOut: (options: { clearLocal: boolean }) => Promise<void>;
   onDeleteAccount: () => Promise<void>;
+  onRestoreBackup: () => void;
 }
 
 const STATUS: Record<SyncStatus, { label: string; icon: typeof Cloud; tone: "muted" | "ok" | "busy" | "warn" | "error" }> = {
@@ -37,14 +43,25 @@ const STATUS: Record<SyncStatus, { label: string; icon: typeof Cloud; tone: "mut
   outdated: { label: "更新が必要", icon: TriangleAlert, tone: "error" },
 };
 
+type DialogKind = "login" | "logout" | "delete" | "restore" | null;
+
 /**
  * ヘッダー右端の同期メニュー。
- * 未ログイン: 「Google でログイン」ボタン / ログイン中: 同期状態アイコン → メニュー
+ * 未ログイン: 「Google でログイン」→ 説明画面 → ログイン / ログイン中: 同期状態 → メニュー
+ * データが消える可能性がある操作は、必ず説明・確認の画面を挟む。
  */
-export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOut, onDeleteAccount }: SyncMenuProps) {
+export function SyncMenu({
+  state,
+  saveError,
+  backup,
+  onPrepareSignIn,
+  onSignIn,
+  onSignOut,
+  onDeleteAccount,
+  onRestoreBackup,
+}: SyncMenuProps) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogKind>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +80,12 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
     };
   }, [open]);
 
+  const openDialog = (kind: DialogKind) => {
+    setOpen(false);
+    setDialog(kind);
+  };
+  const closeDialog = () => setDialog(null);
+
   const signedIn = state.email !== null && state.status !== "signed-out";
   const s = saveError ? { label: "保存エラー", icon: TriangleAlert, tone: "error" as const } : STATUS[state.status];
   // ボタンには、正常に同期できているときは「ログイン済み」と表示する（問題があるときだけ状態を表示）。
@@ -70,18 +93,18 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
   const buttonLabel = !saveError && state.status === "synced" ? "ログイン済み" : s.label;
   const Icon = s.icon;
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await fn();
-      setOpen(false);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "処理に失敗しました");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const dialogs = (
+    <>
+      {dialog === "login" && <LoginIntroDialog onLogin={onSignIn} onClose={closeDialog} />}
+      {dialog === "logout" && (
+        <LogoutDialog email={state.email} onLogout={(clearLocal) => onSignOut({ clearLocal })} onClose={closeDialog} />
+      )}
+      {dialog === "delete" && <DeleteCloudDialog onDelete={onDeleteAccount} onClose={closeDialog} />}
+      {dialog === "restore" && backup && (
+        <RestoreBackupDialog backup={backup} onRestore={onRestoreBackup} onClose={closeDialog} />
+      )}
+    </>
+  );
 
   if (!signedIn && state.status !== "connecting") {
     return (
@@ -95,12 +118,14 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
           type="button"
           onPointerDown={onPrepareSignIn}
           onFocus={onPrepareSignIn}
-          onClick={() => void run(onSignIn)}
-          disabled={busy}
+          onClick={() => {
+            onPrepareSignIn();
+            setDialog("login");
+          }}
           title="Google アカウントでログインすると、PC とスマホでデータを自動同期できます"
-          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700"
         >
-          {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <LogIn className="size-3.5" />}
+          <LogIn className="size-3.5" />
           <span className="hidden sm:inline">Google でログイン</span>
           <span className="sm:hidden">ログイン</span>
         </button>
@@ -113,6 +138,7 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
             {state.error}
           </span>
         )}
+        {dialogs}
       </div>
     );
   }
@@ -153,6 +179,9 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
                 <span className="text-slate-400">・{formatTime(state.syncedAt)}</span>
               )}
             </p>
+            <p className="mt-1 text-[11px] leading-snug text-slate-400">
+              この Google アカウントでログインした端末どうしで、データが自動で同期されます。
+            </p>
             {state.status === "offline" && (
               <p className="mt-1 text-xs text-slate-500">オンラインになると自動で同期します。入力はこの端末に保存されています。</p>
             )}
@@ -173,29 +202,23 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
             )}
           </div>
 
-          <MenuItem icon={LogOut} disabled={busy} onClick={() => void run(onSignOut)}>
-            ログアウト
-            <span className="block text-[11px] font-normal text-slate-400">この端末のデータは残ります</span>
+          {backup && (
+            <MenuItem icon={History} onClick={() => openDialog("restore")}>
+              バックアップから戻す
+              <span className="block text-[11px] font-normal text-slate-400">{describeBackup(backup)}</span>
+            </MenuItem>
+          )}
+          <MenuItem icon={LogOut} onClick={() => openDialog("logout")}>
+            ログアウト…
+            <span className="block text-[11px] font-normal text-slate-400">クラウドのデータは残ります</span>
           </MenuItem>
-          <MenuItem
-            icon={Trash2}
-            danger
-            disabled={busy}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "クラウドに保存されたデータと、TAMERU のアカウントを削除します。\n（この端末のデータは残ります）\nよろしいですか？",
-                )
-              ) {
-                void run(onDeleteAccount);
-              }
-            }}
-          >
-            クラウドのデータとアカウントを削除
+          <MenuItem icon={Trash2} danger onClick={() => openDialog("delete")}>
+            同期をやめて、クラウドのデータを削除…
+            <span className="block text-[11px] font-normal text-rose-400">Google アカウントは削除されません</span>
           </MenuItem>
-          {message && <p className="px-2.5 pb-1.5 pt-1 text-xs text-rose-600">{message}</p>}
         </div>
       )}
+      {dialogs}
     </div>
   );
 }
@@ -203,13 +226,11 @@ export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOu
 function MenuItem({
   icon: Icon,
   danger,
-  disabled,
   onClick,
   children,
 }: {
   icon: typeof Cloud;
   danger?: boolean;
-  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -218,9 +239,8 @@ function MenuItem({
       type="button"
       role="menuitem"
       onClick={onClick}
-      disabled={disabled}
       className={cn(
-        "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition disabled:opacity-50",
+        "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition",
         danger ? "text-rose-600 hover:bg-rose-50" : "text-slate-700 hover:bg-slate-50",
       )}
     >

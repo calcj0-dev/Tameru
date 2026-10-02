@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useTameruStore } from "@/hooks/useTameruStore";
 import { useCloudSync } from "@/hooks/useCloudSync";
 import { SyncMenu } from "@/components/SyncMenu";
-import { InitialSyncDialog } from "@/components/InitialSyncDialog";
+import { InitialSyncDialog } from "@/components/SyncDialogs";
+import { History, X } from "lucide-react";
 import {
   buildAllocationData,
   buildTrendData,
@@ -52,15 +53,32 @@ export function TameruApp() {
           <SyncMenu
             state={sync.state}
             saveError={saveError}
+            backup={sync.backup}
             onPrepareSignIn={sync.prepare}
             onSignIn={sync.signIn}
             onSignOut={sync.signOut}
             onDeleteAccount={sync.deleteAccount}
+            onRestoreBackup={sync.restoreBackup}
           />
         }
       />
       {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {sync.backupNotice && (
+          <BackupNotice
+            message={
+              sync.backupNotice.reason === "cloud-replaced"
+                ? "クラウドのデータを、この端末のデータで上書きしました。"
+                : "この端末のデータを、クラウドのデータに置き換えました。"
+            }
+            onRestore={() => {
+              if (window.confirm("置き換える前のデータに戻しますか？（今のデータもバックアップされます）")) {
+                sync.restoreBackup();
+              }
+            }}
+            onClose={sync.dismissBackupNotice}
+          />
+        )}
         <SummaryCards summary={summary} />
         <AssetTable
           savedStore={store}
@@ -85,6 +103,39 @@ export function TameruApp() {
           ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
           : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"}
       </footer>
+    </div>
+  );
+}
+
+/** 同期でデータを置き換えた直後に出す案内（置き換える前のデータに戻せる） */
+function BackupNotice({ message, onRestore, onClose }: { message: string; onRestore: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900"
+      role="status"
+    >
+      <History className="size-4 shrink-0 text-teal-600" aria-hidden />
+      <p className="min-w-0 flex-1">
+        {message}
+        <span className="text-teal-700/80">置き換える前のデータは、この端末にバックアップしています。</span>
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-teal-700 shadow-sm hover:bg-teal-100"
+        >
+          元に戻す
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="閉じる"
+          className="grid size-7 place-items-center rounded-lg text-teal-700 hover:bg-teal-100"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }

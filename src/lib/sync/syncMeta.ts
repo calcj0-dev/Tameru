@@ -35,6 +35,33 @@ export function clearSyncMeta(): void {
   window.localStorage.removeItem(META_KEY);
 }
 
+/**
+ * ログアウト時に、同期の記録を「前回の同期」として残しておく。
+ * 同じアカウントで再ログインしたとき、初めての端末扱いにせず続きから同期する（ログアウト中の変更も自動でまとめる）。
+ * 同期中扱いにはしないので、ログアウト中に Firebase は読み込まれない。
+ */
+const LAST_META_KEY = "tameru:sync:last";
+
+export function saveLastSyncMeta(meta: SyncMeta): void {
+  window.localStorage.setItem(LAST_META_KEY, JSON.stringify(meta));
+}
+
+export function loadLastSyncMeta(): SyncMeta | null {
+  try {
+    const raw = window.localStorage.getItem(LAST_META_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<SyncMeta>;
+    if (typeof v.uid !== "string" || typeof v.rev !== "number" || typeof v.base !== "string") return null;
+    return { uid: v.uid, rev: v.rev, base: v.base, syncedAt: typeof v.syncedAt === "string" ? v.syncedAt : null };
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastSyncMeta(): void {
+  window.localStorage.removeItem(LAST_META_KEY);
+}
+
 /** ログイン（リダイレクト）中の目印。戻ってきた時に Firebase を読み込むかの判定に使う */
 export function setLoginPending(pending: boolean): void {
   if (pending) window.localStorage.setItem(LOGIN_PENDING_KEY, "1");

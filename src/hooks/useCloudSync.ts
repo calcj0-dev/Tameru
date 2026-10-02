@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TameruStore } from "@/types/asset";
-import type { CloudSync, InitialChoice, SyncState } from "@/lib/sync/cloudSync";
-import { shouldBootSync } from "@/lib/sync/syncMeta";
+import type { CloudSync, InitialChoice, InitialChoiceSummary, SyncState } from "@/lib/sync/cloudSync";
+import { clearBackup, loadBackup, saveBackup, type SyncBackup } from "@/lib/sync/backup";
+import { clearLastSyncMeta, shouldBootSync } from "@/lib/sync/syncMeta";
+import { createInitialStore } from "@/lib/storage";
 
 const SIGNED_OUT: SyncState = { status: "signed-out", email: null, syncedAt: null, error: null };
 
-export interface InitialChoiceRequest {
-  cloudUpdatedAt: string | null;
+export interface InitialChoiceRequest extends InitialChoiceSummary {
   resolve: (choice: InitialChoice) => void;
 }
 
@@ -28,6 +29,10 @@ export function useCloudSync({
 }) {
   const [state, setState] = useState<SyncState>(SIGNED_OUT);
   const [initialChoice, setInitialChoice] = useState<InitialChoiceRequest | null>(null);
+  // 同期で置き換える前のバックアップ（最新1件）。画面はマウント後にしか描画しないので、初期化時に読み込んでよい
+  const [backup, setBackup] = useState<SyncBackup | null>(() => (typeof window === "undefined" ? null : loadBackup()));
+  // この操作中に作られたバックアップ（「元に戻せます」の案内を出す）
+  const [backupNotice, setBackupNotice] = useState<SyncBackup | null>(null);
   const engineRef = useRef<CloudSync | null>(null);
   const bootingRef = useRef<Promise<CloudSync> | null>(null);
   const storeRef = useRef(store);
@@ -59,6 +64,10 @@ export function useCloudSync({
                 },
               }),
             ),
+          onBackup: (b) => {
+            setBackup(b);
+            setBackupNotice(b);
+          },
         });
         engine.start();
         engineRef.current = engine;
@@ -104,13 +113,54 @@ export function useCloudSync({
     await engine.signIn();
   }, [boot]);
 
-  const signOut = useCallback(async () => {
-    await engineRef.current?.signOut();
+  /**
+   * ログアウト。clearLocal=true（共有の PC 向け）は、この端末のデータ・バックアップ・同期の記録も消す。
+   * クラウドのデータは消さない（未送信の変更は送ってからログアウトする）。
+   */
+  const signOut = useCallback(async ({ clearLocal = false }: { clearLocal?: boolean } = {}) => {
+    await engineRef.current?.signOut({ forgetDevice: clearLocal });
+    if (clearLocal) {
+      const fresh = createInitialStore();
+      storeRef.current = fresh;
+      replaceRef.current(fresh);
+      clearBackup();
+      clearLastSyncMeta();
+      setBackup(null);
+      setBackupNotice(null);
+    }
   }, []);
 
+  /** 同期をやめて、クラウドのデータと TAMERU のログイン登録を削除（Google アカウントとこの端末のデータは残る） */
   const deleteAccount = useCallback(async () => {
     await engineRef.current?.deleteAccount();
   }, []);
 
-  return { state, initialChoice, prepare, signIn, signOut, deleteAccount };
+  /**
+   * バックアップから戻す。戻す前の今のデータも新たにバックアップするので、もう一度押せば元に戻せる。
+   * ログイン中なら、戻したデータがそのまま同期される。
+   */
+  const restoreBackup = useCallback(() => {
+    const target = loadBackup();
+    if (!target) return;
+    const before = saveBackup("before-restore", storeRef.current);
+    storeRef.current = target.store;
+    replaceRef.current(target.store);
+    setBackup(before);
+    setBackupNotice(null);
+  }, []);
+
+  const dismissBackupNotice = useCallback(() => setBackupNotice(null), []);
+
+  return {
+    state,
+    initialChoice,
+    backup,
+    backupNotice,
+    prepare,
+    signIn,
+    signOut,
+    deleteAccount,
+    restoreBackup,
+    dismissBackupNotice,
+  };
 }

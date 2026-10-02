@@ -19,13 +19,18 @@ import {
 } from "firebase/firestore";
 import type { TameruStore } from "@/types/asset";
 import { getFirebase } from "@/lib/firebase/client";
+import { computeSummary, type YearMonth } from "@/lib/assetCalc";
 import { SCHEMA_VERSION, sanitizeStore } from "@/lib/storage";
 import { hasNoAmounts, mergeStores, stableStringify } from "./merge";
+import { saveBackup, type SyncBackup } from "./backup";
 import {
+  clearLastSyncMeta,
   clearSyncMeta,
   getDeviceId,
   isLoginPending,
+  loadLastSyncMeta,
   loadSyncMeta,
+  saveLastSyncMeta,
   saveSyncMeta,
   setLoginPending,
   type SyncMeta,
@@ -54,12 +59,38 @@ export interface SyncState {
 /** 初回接続時、この端末とクラウドの両方にデータがあるときの選択 */
 export type InitialChoice = "cloud" | "device";
 
+/** 選択画面で比べるための、データの概要 */
+export interface StoreOverview {
+  accounts: number;
+  holdings: number;
+  latest: YearMonth | null;
+  total: number;
+}
+
+export interface InitialChoiceSummary {
+  device: StoreOverview;
+  cloud: StoreOverview;
+  cloudUpdatedAt: string | null;
+}
+
 export interface CloudSyncCallbacks {
   getLocal: () => TameruStore;
   applyRemote: (store: TameruStore) => void;
   onState: (state: SyncState) => void;
   /** 両方にデータがある場合にユーザーへ選択を求める */
-  askInitialChoice: (summary: { cloudUpdatedAt: string | null }) => Promise<InitialChoice>;
+  askInitialChoice: (summary: InitialChoiceSummary) => Promise<InitialChoice>;
+  /** データを置き換える前にバックアップを取った */
+  onBackup: (backup: SyncBackup) => void;
+}
+
+export function overviewOf(store: TameruStore): StoreOverview {
+  const summary = computeSummary(store);
+  return {
+    accounts: store.accounts.length,
+    holdings: store.accounts.reduce((n, a) => n + a.holdings.length, 0),
+    latest: summary.latest,
+    total: summary.total,
+  };
 }
 
 const PUSH_DELAY_MS = 1500;
@@ -81,6 +112,7 @@ export class CloudSync {
   private pushAgain = false;
   private ready = false; // 初回の突き合わせが終わったか
   private initializing = false;
+  private forgetOnSignOut = false;
   private pendingRemote: RemoteDoc | null = null;
   private blocked = false; // 新しい形式のデータがあるため保存しない
   private state: SyncState = { status: "connecting", email: null, syncedAt: null, error: null };
@@ -108,12 +140,24 @@ export class CloudSync {
       this.stopDocListener();
       this.user = user;
       if (!user) {
+        // ログアウト: 同期の記録は「前回の同期」として残し、同じアカウントで再ログインしたら続きから同期する。
+        // （この端末のデータも消すログアウト・クラウドのデータ削除のときは残さない）
+        if (this.meta && !this.forgetOnSignOut) saveLastSyncMeta(this.meta);
+        this.forgetOnSignOut = false;
         this.meta = null;
         clearSyncMeta();
         this.setState({ status: "signed-out", email: null, syncedAt: null, error: null });
         return;
       }
-      const saved = loadSyncMeta();
+      let saved = loadSyncMeta();
+      if (!saved || saved.uid !== user.uid) {
+        const last = loadLastSyncMeta();
+        if (last && last.uid === user.uid) {
+          saved = last;
+          saveSyncMeta(last);
+        }
+      }
+      clearLastSyncMeta();
       this.meta = saved && saved.uid === user.uid ? saved : null;
       this.ready = false;
       this.blocked = false;
@@ -155,14 +199,22 @@ export class CloudSync {
     }
   }
 
-  /** ログアウト（この端末のデータは残す） */
-  async signOut(): Promise<void> {
+  /**
+   * ログアウト。未送信の変更はクラウドへ送ってからログアウトする。
+   * forgetDevice=true（この端末のデータも消す場合）は、再ログイン用の同期の記録も残さない。
+   * この端末のデータそのものの削除は呼び出し側で行う。
+   */
+  async signOut({ forgetDevice = false }: { forgetDevice?: boolean } = {}): Promise<void> {
     await this.flush();
+    this.forgetOnSignOut = forgetDevice;
     const { auth } = getFirebase();
     await signOut(auth);
   }
 
-  /** クラウドのデータとアカウントを削除（この端末のデータは残す） */
+  /**
+   * 同期をやめて、クラウドのデータと TAMERU のログイン登録を削除する。
+   * Google アカウント自体は削除しない。この端末のデータは残す。
+   */
   async deleteAccount(): Promise<void> {
     const user = this.user;
     if (!user) return;
@@ -170,7 +222,9 @@ export class CloudSync {
     this.stopDocListener();
     await deleteDoc(doc(db, "users", user.uid));
     clearSyncMeta();
+    clearLastSyncMeta();
     this.meta = null;
+    this.forgetOnSignOut = true;
     try {
       await deleteUser(user);
     } catch (e) {
@@ -298,16 +352,25 @@ export class CloudSync {
     }
 
     // この端末で初めて同期する
+    const localJson = stableStringify(local);
     let choice: InitialChoice = "cloud";
-    if (!hasNoAmounts(local) && stableStringify(local) !== remoteJson) {
-      choice = await this.cb.askInitialChoice({ cloudUpdatedAt: remote.updatedAt });
+    if (!hasNoAmounts(local) && localJson !== remoteJson) {
+      choice = await this.cb.askInitialChoice({
+        device: overviewOf(local),
+        cloud: overviewOf(remoteStore),
+        cloudUpdatedAt: remote.updatedAt,
+      });
     }
     if (choice === "cloud") {
+      // 置き換える前の、この端末のデータをバックアップ（金額が未入力でも、口座名などの変更があれば残す）
+      if (localJson !== remoteJson) this.cb.onBackup(saveBackup("device-replaced", local));
       this.saveMeta({ uid, rev: remote.rev, base: remoteJson });
       this.cb.applyRemote(remoteStore);
       this.ready = true;
       this.setState({ status: "synced", error: null });
     } else {
+      // 上書きする前の、クラウドのデータをバックアップ
+      this.cb.onBackup(saveBackup("cloud-replaced", remoteStore));
       // この端末のデータでクラウドを上書き（base = クラウドなので、マージせずそのまま保存される）
       this.meta = { uid, rev: remote.rev, base: remoteJson, syncedAt: null };
       this.ready = true;
