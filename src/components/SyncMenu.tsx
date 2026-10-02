@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 interface SyncMenuProps {
   state: SyncState;
   saveError: boolean;
+  /** ログインボタンに触れた時点で、ログインの準備を始める */
+  onPrepareSignIn: () => void;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onDeleteAccount: () => Promise<void>;
@@ -39,7 +41,7 @@ const STATUS: Record<SyncStatus, { label: string; icon: typeof Cloud; tone: "mut
  * ヘッダー右端の同期メニュー。
  * 未ログイン: 「Google でログイン」ボタン / ログイン中: 同期状態アイコン → メニュー
  */
-export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccount }: SyncMenuProps) {
+export function SyncMenu({ state, saveError, onPrepareSignIn, onSignIn, onSignOut, onDeleteAccount }: SyncMenuProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
 
   if (!signedIn && state.status !== "connecting") {
     return (
-      <div className="flex items-center gap-2">
+      <div className="relative flex items-center gap-2">
         {saveError && (
           <span className="flex items-center text-rose-600" role="alert" title="この端末への保存に失敗しました">
             <TriangleAlert className="size-4" />
@@ -91,6 +93,8 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
         )}
         <button
           type="button"
+          onPointerDown={onPrepareSignIn}
+          onFocus={onPrepareSignIn}
           onClick={() => void run(onSignIn)}
           disabled={busy}
           title="Google アカウントでログインすると、PC とスマホでデータを自動同期できます"
@@ -101,7 +105,11 @@ export function SyncMenu({ state, saveError, onSignIn, onSignOut, onDeleteAccoun
           <span className="sm:hidden">ログイン</span>
         </button>
         {state.error && (
-          <span className="hidden max-w-48 text-[11px] leading-tight text-rose-600 md:block" role="alert">
+          // スマホ: ボタンの下に吹き出しで表示 / PC: ボタンの横に表示
+          <span
+            className="absolute right-0 top-full z-50 mt-2 w-60 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-snug text-rose-700 shadow-md md:static md:mt-0 md:w-auto md:max-w-48 md:border-0 md:bg-transparent md:p-0 md:text-[11px] md:leading-tight md:text-rose-600 md:shadow-none"
+            role="alert"
+          >
             {state.error}
           </span>
         )}

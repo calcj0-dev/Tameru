@@ -52,6 +52,7 @@ export function TameruApp() {
           <SyncMenu
             state={sync.state}
             saveError={saveError}
+            onPrepareSignIn={sync.prepare}
             onSignIn={sync.signIn}
             onSignOut={sync.signOut}
             onDeleteAccount={sync.deleteAccount}

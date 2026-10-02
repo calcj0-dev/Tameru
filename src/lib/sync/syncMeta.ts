@@ -41,6 +41,14 @@ export function setLoginPending(pending: boolean): void {
   else window.localStorage.removeItem(LOGIN_PENDING_KEY);
 }
 
+export function isLoginPending(): boolean {
+  try {
+    return window.localStorage.getItem(LOGIN_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** 起動時に Firebase を読み込む必要があるか（同期中 or ログイン途中） */
 export function shouldBootSync(): boolean {
   try {

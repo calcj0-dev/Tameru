@@ -21,7 +21,15 @@ import type { TameruStore } from "@/types/asset";
 import { getFirebase } from "@/lib/firebase/client";
 import { SCHEMA_VERSION, sanitizeStore } from "@/lib/storage";
 import { hasNoAmounts, mergeStores, stableStringify } from "./merge";
-import { clearSyncMeta, getDeviceId, loadSyncMeta, saveSyncMeta, setLoginPending, type SyncMeta } from "./syncMeta";
+import {
+  clearSyncMeta,
+  getDeviceId,
+  isLoginPending,
+  loadSyncMeta,
+  saveSyncMeta,
+  setLoginPending,
+  type SyncMeta,
+} from "./syncMeta";
 
 /**
  * クラウド同期エンジン（ローカルファースト）。
@@ -82,8 +90,17 @@ export class CloudSync {
   /** 起動: ログイン状態を監視し、ログイン済みなら同期を始める */
   start(): void {
     const { auth } = getFirebase();
-    // リダイレクト方式のログインから戻った場合のエラーを拾う
+    // リダイレクト方式のログインから戻った場合の結果を確認する。
+    // 戻ってきたのにログインできていない場合（結果が届かなかった等）は、黙って未ログインにせずメッセージを出す
+    const wasPending = isLoginPending();
     getRedirectResult(auth)
+      .then(async (result) => {
+        if (!wasPending || result) return;
+        await auth.authStateReady();
+        if (!auth.currentUser) {
+          this.setState({ status: "signed-out", error: "ログインできませんでした。もう一度お試しください" });
+        }
+      })
       .catch((e) => this.setState({ status: "error", error: authErrorMessage(e) }))
       .finally(() => setLoginPending(false));
 
@@ -114,23 +131,20 @@ export class CloudSync {
     window.removeEventListener("online", this.handleOnline);
   }
 
-  /** Google ログイン。PC はポップアップ、スマホ・ホーム画面アプリはリダイレクト */
+  /**
+   * Google ログイン。まずポップアップ方式で行い、ポップアップが使えない場合だけリダイレクト方式にする。
+   * Android のホーム画面アプリではリダイレクト方式だとログイン画面がアプリ外（Chrome のカスタムタブ）で開かれ、
+   * 戻ってきたときに結果を受け取れないため。ポップアップ方式は Chrome と共通の保存領域経由で結果を受け取れる。
+   */
   async signIn(): Promise<void> {
     const { auth } = getFirebase();
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    const preferRedirect =
-      window.matchMedia("(pointer: coarse)").matches || window.matchMedia("(display-mode: standalone)").matches;
     try {
-      if (preferRedirect) {
-        setLoginPending(true);
-        await signInWithRedirect(auth, provider);
-        return;
-      }
       await signInWithPopup(auth, provider);
     } catch (e) {
       const code = errorCode(e);
-      if (code === "auth/popup-blocked") {
+      if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
         setLoginPending(true);
         await signInWithRedirect(auth, provider);
         return;

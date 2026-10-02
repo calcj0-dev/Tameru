@@ -90,6 +90,14 @@ export function useCloudSync({
 
   useEffect(() => () => engineRef.current?.dispose(), []);
 
+  /**
+   * ログインの準備（Firebase の読み込み）を先に始める。ログインボタンに触れた時点で呼ぶ。
+   * ポップアップはボタン操作の直後でないとブロックされるため、押した瞬間に読み込みが済んでいるようにする
+   */
+  const prepare = useCallback(() => {
+    void boot();
+  }, [boot]);
+
   const signIn = useCallback(async () => {
     setState((s) => ({ ...s, status: "connecting", error: null }));
     const engine = await boot();
@@ -104,5 +112,5 @@ export function useCloudSync({
     await engineRef.current?.deleteAccount();
   }, []);
 
-  return { state, initialChoice, signIn, signOut, deleteAccount };
+  return { state, initialChoice, prepare, signIn, signOut, deleteAccount };
 }
