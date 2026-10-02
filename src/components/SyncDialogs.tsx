@@ -17,7 +17,16 @@ const warn = <TriangleAlert className="size-4 text-amber-500" aria-hidden />;
 // ログイン前の説明
 // ---------------------------------------------------------------------------
 
-export function LoginIntroDialog({ onLogin, onClose }: { onLogin: () => Promise<void>; onClose: () => void }) {
+export function LoginIntroDialog({
+  ready,
+  onLogin,
+  onClose,
+}: {
+  /** ログインの準備（Firebase の読み込み）が終わったか。終わるまでボタンは押せない */
+  ready: boolean;
+  onLogin: () => Promise<void>;
+  onClose: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   return (
     <Dialog title="Google でログインして同期" onClose={busy ? undefined : onClose}>
@@ -61,7 +70,8 @@ export function LoginIntroDialog({ onLogin, onClose }: { onLogin: () => Promise<
         <button
           type="button"
           data-autofocus
-          disabled={busy}
+          // 準備が終わる前に押すと、ログイン画面（ポップアップ）がブロックされることがあるため押せなくする
+          disabled={busy || !ready}
           onClick={async () => {
             setBusy(true);
             try {
@@ -73,8 +83,8 @@ export function LoginIntroDialog({ onLogin, onClose }: { onLogin: () => Promise<
           }}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-teal-700 disabled:opacity-70"
         >
-          {busy ? <LoaderCircle className="size-4 animate-spin" /> : <LogIn className="size-4" />}
-          Google でログイン
+          {busy || !ready ? <LoaderCircle className="size-4 animate-spin" /> : <LogIn className="size-4" />}
+          {ready ? "Google でログイン" : "準備中…"}
         </button>
       </div>
     </Dialog>

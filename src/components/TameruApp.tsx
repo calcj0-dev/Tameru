@@ -52,6 +52,7 @@ export function TameruApp() {
         right={
           <SyncMenu
             state={sync.state}
+            ready={sync.ready}
             saveError={saveError}
             backup={sync.backup}
             onPrepareSignIn={sync.prepare}

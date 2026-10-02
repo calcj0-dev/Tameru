@@ -28,6 +28,8 @@ export function useCloudSync({
   replaceStore: (store: TameruStore) => void;
 }) {
   const [state, setState] = useState<SyncState>(SIGNED_OUT);
+  // Firebase の読み込みが終わったか（ログインボタンを押せる状態か）
+  const [ready, setReady] = useState(false);
   const [initialChoice, setInitialChoice] = useState<InitialChoiceRequest | null>(null);
   // 同期で置き換える前のバックアップ（最新1件）。画面はマウント後にしか描画しないので、初期化時に読み込んでよい
   const [backup, setBackup] = useState<SyncBackup | null>(() => (typeof window === "undefined" ? null : loadBackup()));
@@ -71,6 +73,7 @@ export function useCloudSync({
         });
         engine.start();
         engineRef.current = engine;
+        setReady(true);
         return engine;
       });
     }
@@ -153,6 +156,7 @@ export function useCloudSync({
 
   return {
     state,
+    ready,
     initialChoice,
     backup,
     backupNotice,

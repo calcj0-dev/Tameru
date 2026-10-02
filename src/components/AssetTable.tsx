@@ -71,9 +71,11 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
     dispatchDraft({ type: "stop" });
   };
   // 入力欄の確定（blur）は保存ボタンのクリックより先に処理・再描画されるため、ここでの draft は最新
+  // 保存ボタンは編集中は常に押せる（入力直後は値の確定前で「変更なし」扱いのため、押せない状態にすると1回目の操作が空振りする）。
+  // 変更がなければ何も保存せずに参照のみに戻る
   const handleSave = () => {
     if (!draft) return;
-    onSave(fillEmptyWithZero(draft));
+    if (dirty) onSave(fillEmptyWithZero(draft));
     dispatchDraft({ type: "stop" });
   };
 
@@ -241,8 +243,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!dirty}
-                title={dirty ? "変更を保存します（入力がある月の空欄は0円として保存）" : "変更はありません"}
+                title="変更を保存します（入力がある月の空欄は0円として保存）"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 <Save className="size-4" aria-hidden />

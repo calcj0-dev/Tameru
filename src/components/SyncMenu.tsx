@@ -22,6 +22,8 @@ import { DeleteCloudDialog, LoginIntroDialog, LogoutDialog, RestoreBackupDialog 
 
 interface SyncMenuProps {
   state: SyncState;
+  /** ログインの準備（Firebase の読み込み）が終わったか */
+  ready: boolean;
   saveError: boolean;
   /** 同期で置き換える前のバックアップ（あれば「バックアップから戻す」を表示） */
   backup: SyncBackup | null;
@@ -52,6 +54,7 @@ type DialogKind = "login" | "logout" | "delete" | "restore" | null;
  */
 export function SyncMenu({
   state,
+  ready,
   saveError,
   backup,
   onPrepareSignIn,
@@ -95,7 +98,7 @@ export function SyncMenu({
 
   const dialogs = (
     <>
-      {dialog === "login" && <LoginIntroDialog onLogin={onSignIn} onClose={closeDialog} />}
+      {dialog === "login" && <LoginIntroDialog ready={ready} onLogin={onSignIn} onClose={closeDialog} />}
       {dialog === "logout" && (
         <LogoutDialog email={state.email} onLogout={(clearLocal) => onSignOut({ clearLocal })} onClose={closeDialog} />
       )}

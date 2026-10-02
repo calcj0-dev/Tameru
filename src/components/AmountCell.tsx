@@ -16,14 +16,19 @@ interface AmountCellProps {
 
 /**
  * 金額入力セル。
- * - フォーカス中は生の数値を全選択状態で表示、blur でカンマ区切りに整形して確定
- * - Enter: 下のセルへ（最終行なら次の月の先頭へ） / Tab: 右のセルへ（12月なら次の行の1月へ）
- * - Shift で逆方向、Esc で編集を取り消し
+ * - フォーカス中は生の数値を全選択状態で表示、フォーカスが外れるとカンマ区切りで表示
+ * - 入力は1文字ごとに確定する（解釈できる値になった時点で反映）。
+ *   フォーカスが外れたときにだけ確定すると、スマホでは入力直後に「保存」を押しても入力欄からフォーカスが外れず、
+ *   値が反映されないまま保存されてしまうため
+ * - 最終的に解釈できない入力だった場合・Esc を押した場合は、フォーカスした時点の値に戻す
+ * - Enter: 下のセルへ（最終行なら次の月の先頭へ） / Tab: 右のセルへ（12月なら次の行の1月へ）、Shift で逆方向
  */
 export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: AmountCellProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
+  // フォーカスした時点の値（取り消し・不正な入力のときに戻す先）
+  const originalRef = useRef<number | null>(null);
   const selectPendingRef = useRef(false);
   const justFocusedRef = useRef(false);
 
@@ -48,10 +53,17 @@ export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: A
       aria-label={ariaLabel}
       value={display}
       placeholder="—"
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        const text = e.target.value;
+        setDraft(text);
+        const parsed = parseAmountInput(text);
+        // 解釈できる値なら、その場で確定（入力途中の「-」などは確定しない）
+        if (parsed !== undefined && parsed !== (value ?? null)) onCommit(parsed);
+      }}
       onFocus={(e) => {
         selectPendingRef.current = true;
         justFocusedRef.current = true;
+        originalRef.current = value ?? null;
         setDraft(value === undefined ? "" : String(value));
         e.currentTarget.select();
       }}
@@ -61,10 +73,9 @@ export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: A
         justFocusedRef.current = false;
       }}
       onBlur={() => {
-        if (!cancelRef.current && draft !== null) {
-          const parsed = parseAmountInput(draft);
-          // undefined（解釈不能な入力）は元の値に戻す
-          if (parsed !== undefined && parsed !== (value ?? null)) onCommit(parsed);
+        // 最後の入力が解釈できない値（例: "abc"）なら、フォーカスした時点の値に戻す
+        if (!cancelRef.current && draft !== null && parseAmountInput(draft) === undefined) {
+          if ((value ?? null) !== originalRef.current) onCommit(originalRef.current);
         }
         cancelRef.current = false;
         setDraft(null);
@@ -79,6 +90,8 @@ export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: A
         } else if (e.key === "Tab") {
           if (onNavigate(e.shiftKey ? "left" : "right")) e.preventDefault();
         } else if (e.key === "Escape") {
+          // 編集を取り消して、フォーカスした時点の値に戻す
+          if ((value ?? null) !== originalRef.current) onCommit(originalRef.current);
           cancelRef.current = true;
           e.currentTarget.blur();
         }

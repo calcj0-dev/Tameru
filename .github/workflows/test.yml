@@ -1,0 +1,60 @@
+# プッシュ・プルリクエストのたびに自動テストを実行する
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Firebase エミュレーター（Firestore）に必要
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      - name: Playwright のブラウザをインストール
+        run: npx playwright install --with-deps chromium
+
+      - name: コードチェック（lint）
+        run: npm run lint
+
+      - name: ① 計算・データ処理のテスト
+        run: npm test
+
+      - name: ② 画面操作のテスト（PC・スマホ）
+        run: npm run test:e2e
+
+      - name: 型チェック
+        run: npx tsc --noEmit
+
+      - name: ③ セキュリティルール・ログイン・同期のテスト（Firebase エミュレーター）
+        run: npm run test:e2e:sync
+
+      - name: 失敗時の記録を保存
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            playwright-report/
+            playwright-report-sync/
+          retention-days: 7

@@ -12,6 +12,13 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/playwright-report-sync/
+/.next-e2e/
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
 
 # next.js
 /.next/

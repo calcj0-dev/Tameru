@@ -1,9 +1,15 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
 import { FIREBASE_AUTH_HOST, FIREBASE_CONFIG } from "./config";
 
 let cached: { app: FirebaseApp; auth: Auth; db: Firestore } | null = null;
+
+/**
+ * 自動テスト用: Firebase エミュレーター（手元で動く偽の Firebase）に接続するか。
+ * テスト用のビルド（npm run test:e2e:sync）でのみ有効。本番のクラウドには一切接続しない。
+ */
+const USE_EMULATOR = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1";
 
 /**
  * Firebase を初期化して返す（ブラウザ専用）。
@@ -17,6 +23,12 @@ export function getFirebase() {
   if (cached) return cached;
   const authDomain = window.location.protocol === "https:" ? window.location.host : FIREBASE_AUTH_HOST;
   const app = getApps().length > 0 ? getApp() : initializeApp({ ...FIREBASE_CONFIG, authDomain });
-  cached = { app, auth: getAuth(app), db: getFirestore(app) };
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  if (USE_EMULATOR) {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  }
+  cached = { app, auth, db };
   return cached;
 }

@@ -3,6 +3,8 @@ import packageJson from "./package.json";
 import { FIREBASE_AUTH_HOST } from "./src/lib/firebase/config";
 
 const nextConfig: NextConfig = {
+  // 自動テスト（エミュレーター用ビルド）は別のフォルダに出力し、通常のビルドを上書きしない
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // 画面に表示するバージョン（package.json の version）と、Vercel でビルドしたコミット（短縮）
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
