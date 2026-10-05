@@ -183,7 +183,7 @@ export function readSheet(text: string, store: TameruStore): SheetImportResult {
     if (!holdingId) {
       errors.push({
         row: rowNo,
-        message: `「${name || "（口座名なし）"}${memo ? ` / ${memo}` : ""}」はアプリにない内訳です。口座名・メモを出力した表のとおりにするか、先にアプリで内訳を追加してください。`,
+        message: `「${name || "（口座名なし）"}${memo ? ` / ${memo}` : ""}」は TAMERU にない内訳です。口座名・メモを出力した表のとおりにするか、先に TAMERU で内訳を追加してください。`,
       });
       continue;
     }

@@ -112,6 +112,11 @@ function ExportStep({ store, currentYear, onNext }: { store: TameruStore; curren
   return (
     <div className="mt-4 space-y-4 text-sm">
       <ol className="list-decimal space-y-1 pl-5 text-slate-600">
+        <li>
+          <strong className="text-slate-900">
+            先に、TAMERU の表で口座と内訳（資産クラス・地域も）を作っておきます。表には、TAMERU にある口座・内訳だけが出力されます
+          </strong>
+        </li>
         <li>期間を選んで「表をコピー」を押します（今入力されている金額も入ります）</li>
         <li>スプレッドシートの左上のセル（A1）に貼り付けます</li>
         <li>スプレッドシート上で、金額を入力するか、元の表から貼り付けます</li>

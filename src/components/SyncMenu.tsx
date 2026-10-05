@@ -192,14 +192,14 @@ export function SyncMenu({
             {state.status === "outdated" && (
               <div className="mt-1.5 space-y-1.5">
                 <p className="text-xs text-rose-600">
-                  新しいバージョンのアプリで保存されたデータがあります。データを守るため、このアプリからの同期を停止しています。
+                  新しいバージョンの TAMERU で保存されたデータがあります。データを守るため、このバージョンからの同期を停止しています。
                 </p>
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
                   className="inline-flex items-center gap-1 rounded-md bg-teal-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-teal-700"
                 >
-                  <RefreshCw className="size-3.5" /> アプリを更新
+                  <RefreshCw className="size-3.5" /> TAMERU を更新
                 </button>
               </div>
             )}

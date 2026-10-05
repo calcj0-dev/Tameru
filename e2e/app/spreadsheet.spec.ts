@@ -11,6 +11,7 @@ test.describe("スプレッドシート連携", () => {
 
   test("① アプリの口座・内訳に合わせた表を出力（コピー）できる", async ({ page }) => {
     const dialog = page.getByRole("dialog", { name: "スプレッドシートと連携" });
+    await expect(dialog.getByText("先に、TAMERU の表で口座と内訳（資産クラス・地域も）を作っておきます")).toBeVisible();
     await dialog.getByRole("button", { name: "表をコピー" }).click();
     await expect(dialog.getByRole("button", { name: "コピーしました" })).toBeVisible();
     const tsv = await page.evaluate(() => navigator.clipboard.readText());
