@@ -80,6 +80,74 @@ test.describe("編集と保存", () => {
   });
 });
 
+test.describe("元に戻す・やり直す", () => {
+  test.beforeEach(async ({ page }) => {
+    await openApp(page, seedData({ "2026-01": { h1: 100 } }));
+    await editButton(page).click();
+  });
+
+  const undoButton = (page: Page) => page.getByRole("button", { name: "元に戻す" });
+  const redoButton = (page: Page) => page.getByRole("button", { name: "やり直す" });
+
+  test("ボタンで1つずつ戻せて、やり直せる。同じセルへの入力は1回で戻る", async ({ page }) => {
+    await expect(undoButton(page)).toBeDisabled();
+    await expect(redoButton(page)).toBeDisabled();
+
+    await cell(page, "h1", 1).click();
+    await page.keyboard.type("1500000"); // 1文字ずつ入力しても1回の操作
+    await cell(page, "h2", 1).click();
+    await page.keyboard.type("300");
+
+    await undoButton(page).click();
+    await expect(cell(page, "h2", 1)).toHaveValue("");
+    await expect(cell(page, "h1", 1)).toHaveValue("1,500,000");
+    await undoButton(page).click();
+    await expect(cell(page, "h1", 1)).toHaveValue("100");
+    await expect(undoButton(page)).toBeDisabled();
+
+    await redoButton(page).click();
+    await expect(cell(page, "h1", 1)).toHaveValue("1,500,000");
+  });
+
+  test("口座の削除も元に戻せる", async ({ page }) => {
+    answerDialogs(page, true);
+    await page.getByRole("button", { name: "口座「SBI証券」を削除" }).click();
+    await expect(page.getByRole("textbox", { name: "口座名 2" })).toHaveCount(0);
+    await undoButton(page).click();
+    await expect(page.getByRole("textbox", { name: "口座名 2" })).toHaveValue("SBI証券");
+  });
+
+  test("全部戻すと「変更なし」になり、キャンセルで確認が出ない", async ({ page }) => {
+    const dialogs = answerDialogs(page, false);
+    await cell(page, "h1", 1).fill("999");
+    await undoButton(page).click();
+    await cancelButton(page).click();
+    expect(dialogs).toHaveLength(0);
+    await expect(editButton(page)).toBeVisible();
+  });
+
+  test("Ctrl+Z で戻し、Ctrl+Y / Ctrl+Shift+Z でやり直せる（入力中でも表全体の操作になる）", async ({ page, isMobile }) => {
+    test.skip(isMobile, "キーボード操作は PC のみ");
+    await cell(page, "h1", 1).click();
+    await page.keyboard.type("777");
+    await page.keyboard.press("Control+z"); // 入力欄にフォーカスがあるまま
+    await expect(cell(page, "h1", 1)).toHaveValue("100");
+    await page.keyboard.press("Control+y");
+    await expect(cell(page, "h1", 1)).toHaveValue("777");
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Control+Shift+z");
+    await expect(cell(page, "h1", 1)).toHaveValue("777");
+  });
+
+  test("戻した状態で保存すると、戻した内容が保存される", async ({ page }) => {
+    await cell(page, "h1", 1).fill("200");
+    await cell(page, "h2", 1).fill("300");
+    await undoButton(page).click();
+    await saveButton(page).click();
+    expect(await storedMonth(page, 2026, 1)).toEqual({ h1: 200, h2: 0, h3: 0 });
+  });
+});
+
 test.describe("金額の入力", () => {
   test.beforeEach(async ({ page }) => {
     await openApp(page, seedData({ "2026-01": { h1: 100 } }));

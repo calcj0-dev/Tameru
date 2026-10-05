@@ -1,10 +1,25 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, CopyPlus, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CopyPlus,
+  FileSpreadsheet,
+  Pencil,
+  Plus,
+  Redo2,
+  Save,
+  Trash2,
+  Undo2,
+  X,
+} from "lucide-react";
+import type { SheetChange, SheetImportResult } from "@/lib/spreadsheet";
+import { SpreadsheetDialog } from "@/components/SpreadsheetDialog";
 import type { AssetAccount, AssetClassId, Holding, RegionId, TameruStore } from "@/types/asset";
 import { createEditActions } from "@/lib/storeActions";
-import { applyEditAction, fillEmptyWithZero, type EditAction } from "@/lib/storeReducer";
+import { fillEmptyWithZero } from "@/lib/storeReducer";
+import { INITIAL_DRAFT, draftReducer, isDirty } from "@/lib/draftHistory";
 import { getAccountMonthTotal, getMonthAmounts, getMonthTotal, hasMonthData, shiftMonth } from "@/lib/assetCalc";
 import { ASSET_CLASSES, MAX_ACCOUNTS, MAX_HOLDINGS_PER_ACCOUNT, MONTHS, REGIONS, accountColor } from "@/lib/constants";
 import { formatNumber } from "@/lib/format";
@@ -29,35 +44,19 @@ const STICKY_COL = "sticky left-0 w-52 min-w-52 sm:w-72 sm:min-w-72";
 
 const DISCARD_MESSAGE = "保存していない変更があります。変更を破棄しますか？";
 
-interface DraftState {
-  draft: TameruStore | null;
-  dirty: boolean;
-}
-
-type DraftAction = { type: "start"; store: TameruStore } | { type: "stop" } | { type: "edit"; action: EditAction };
-
-function draftReducer(state: DraftState, action: DraftAction): DraftState {
-  switch (action.type) {
-    case "start":
-      return { draft: action.store, dirty: false };
-    case "stop":
-      return { draft: null, dirty: false };
-    case "edit": {
-      if (!state.draft) return state;
-      const next = applyEditAction(state.draft, action.action);
-      return next === state.draft ? state : { draft: next, dirty: true };
-    }
-  }
-}
-
 /**
  * 資産入力表。
  * - 参照のみ（既定）: 保存済みのデータを表示するだけ。「編集」ボタンで編集を開始
  * - 編集: 保存済みデータのコピー（下書き）を編集し、「保存」で反映する。「キャンセル」で破棄。どちらも参照のみに戻る
+ *   編集中は「元に戻す」「やり直す」（Ctrl+Z / Ctrl+Y・Ctrl+Shift+Z）が使える
  */
 export function AssetTable({ savedStore, year, currentYear, onYearChange, highlightMonth, onSave }: AssetTableProps) {
   // 下書き。draft=null は参照のみ。開くたびに参照のみから始める（状態は保存しない）
-  const [{ draft, dirty }, dispatchDraft] = useReducer(draftReducer, { draft: null, dirty: false });
+  const [draftState, dispatchDraft] = useReducer(draftReducer, INITIAL_DRAFT);
+  const { draft } = draftState;
+  const dirty = isDirty(draftState);
+  const canUndo = draftState.past.length > 0;
+  const canRedo = draftState.future.length > 0;
   const actions = useMemo(
     () => createEditActions((action) => dispatchDraft({ type: "edit", action })),
     [dispatchDraft],
@@ -65,9 +64,48 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
   const editing = draft !== null;
   const store = draft ?? savedStore;
 
+  /** 入力欄にフォーカスしたら、それまでの入力とは別の操作として履歴に積む */
+  const markBoundary = () => dispatchDraft({ type: "boundary" });
+
+  /** 元に戻す・やり直す。入力中のセルがあれば先にフォーカスを外し、表示中の入力を確定させる */
+  const handleUndo = () => {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    dispatchDraft({ type: "undo" });
+  };
+  const handleRedo = () => {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    dispatchDraft({ type: "redo" });
+  };
+
+  // スプレッドシート連携の画面と、取り込んだ直後の案内
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+
+  // キーボード: Ctrl+Z（元に戻す）、Ctrl+Y / Ctrl+Shift+Z（やり直す）。Mac は Cmd
+  // ダイアログを開いている間は、貼り付け欄などの通常の文字の取り消しに任せる
+  useEffect(() => {
+    if (!editing || sheetOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.isComposing) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        dispatchDraft({ type: "undo" });
+      } else if (key === "y" || (key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        dispatchDraft({ type: "redo" });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editing, sheetOpen]);
+
   const handleStartEditing = () => dispatchDraft({ type: "start", store: savedStore });
   const handleCancel = () => {
     if (dirty && !window.confirm(DISCARD_MESSAGE)) return;
+    setImportNotice(null);
     dispatchDraft({ type: "stop" });
   };
   // 入力欄の確定（blur）は保存ボタンのクリックより先に処理・再描画されるため、ここでの draft は最新
@@ -76,7 +114,16 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
   const handleSave = () => {
     if (!draft) return;
     if (dirty) onSave(fillEmptyWithZero(draft));
+    setImportNotice(null);
     dispatchDraft({ type: "stop" });
+  };
+  const handleSheetApply = (changes: SheetChange[], range: NonNullable<SheetImportResult["range"]>) => {
+    actions.setAmounts(changes);
+    setSheetOpen(false);
+    const fmt = (ym: { year: number; month: number }) => `${ym.year}年${ym.month}月`;
+    setImportNotice(
+      `スプレッドシートから ${changes.length} セルを取り込みました（${fmt(range.from)}〜${fmt(range.to)}）。表で確認して「保存」してください。「元に戻す」で取り消せます。`,
+    );
   };
 
   const { accounts } = store;
@@ -221,6 +268,39 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
         <div className="flex flex-wrap items-center gap-2">
           {editing && (
             <>
+              <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  title="元に戻す（Ctrl+Z）"
+                  className="inline-flex items-center gap-1 rounded-l-lg px-2.5 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                >
+                  <Undo2 className="size-4" aria-hidden />
+                  <span className="hidden sm:inline">元に戻す</span>
+                  <span className="sr-only sm:hidden">元に戻す</span>
+                </button>
+                <span className="h-5 w-px bg-slate-200" aria-hidden />
+                <button
+                  type="button"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  title="やり直す（Ctrl+Y）"
+                  className="inline-flex items-center gap-1 rounded-r-lg px-2.5 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                >
+                  <span className="hidden sm:inline">やり直す</span>
+                  <span className="sr-only sm:hidden">やり直す</span>
+                  <Redo2 className="size-4" aria-hidden />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700"
+              >
+                <FileSpreadsheet className="size-4" aria-hidden />
+                スプレッドシート連携
+              </button>
               <button
                 type="button"
                 onClick={handleAddAccount}
@@ -264,6 +344,24 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
           )}
         </div>
       </div>
+
+      {editing && importNotice && (
+        <div className="flex items-start gap-2 border-b border-teal-100 bg-teal-50 px-5 py-2.5 text-sm text-teal-900" role="status">
+          <FileSpreadsheet className="mt-0.5 size-4 shrink-0 text-teal-600" aria-hidden />
+          <p className="min-w-0 flex-1">{importNotice}</p>
+          <button
+            type="button"
+            onClick={() => setImportNotice(null)}
+            aria-label="閉じる"
+            className="grid size-6 shrink-0 place-items-center rounded text-teal-700 hover:bg-teal-100"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+      {editing && sheetOpen && draft && (
+        <SpreadsheetDialog store={draft} currentYear={currentYear} onApply={handleSheetApply} onClose={() => setSheetOpen(false)} />
+      )}
 
       <div ref={scrollRef} className="overflow-x-auto scroll-pl-52 sm:scroll-pl-72">
         <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
@@ -353,6 +451,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                               value={account.name}
                               data-account-name={account.id}
                               onChange={(e) => actions.renameAccount(account.id, e.target.value)}
+                              onFocus={markBoundary}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                                   e.preventDefault();
@@ -445,6 +544,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                                   value={holding.memo}
                                   data-holding-memo={holding.id}
                                   onChange={(e) => actions.updateHolding(holding.id, { memo: e.target.value })}
+                                  onFocus={markBoundary}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                                       e.preventDefault();
@@ -502,6 +602,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                             >
                               {editing ? (
                                 <AmountCell
+                                  onFocusCell={markBoundary}
                                   cellId={`${holding.id}:${m}`}
                                   ariaLabel={`${account.name || "口座"} ${holding.memo || "内訳"} ${m}月`}
                                   value={value}

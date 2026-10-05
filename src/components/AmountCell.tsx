@@ -12,6 +12,8 @@ interface AmountCellProps {
   onCommit: (value: number | null) => void;
   /** 移動できたら true。false の場合は Tab のデフォルト動作に任せる */
   onNavigate: (direction: NavDirection) => boolean;
+  /** フォーカスしたとき（元に戻す・やり直すの区切りに使う） */
+  onFocusCell?: () => void;
 }
 
 /**
@@ -23,7 +25,7 @@ interface AmountCellProps {
  * - 最終的に解釈できない入力だった場合・Esc を押した場合は、フォーカスした時点の値に戻す
  * - Enter: 下のセルへ（最終行なら次の月の先頭へ） / Tab: 右のセルへ（12月なら次の行の1月へ）、Shift で逆方向
  */
-export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: AmountCellProps) {
+export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate, onFocusCell }: AmountCellProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
@@ -64,6 +66,7 @@ export function AmountCell({ value, cellId, ariaLabel, onCommit, onNavigate }: A
         selectPendingRef.current = true;
         justFocusedRef.current = true;
         originalRef.current = value ?? null;
+        onFocusCell?.();
         setDraft(value === undefined ? "" : String(value));
         e.currentTarget.select();
       }}

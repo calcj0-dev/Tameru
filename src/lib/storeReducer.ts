@@ -14,6 +14,8 @@ export type StoreAction =
   | { type: "updateHolding"; holdingId: string; patch: HoldingPatch }
   | { type: "removeHolding"; holdingId: string }
   | { type: "setAmount"; year: number; month: number; holdingId: string; value: number | null }
+  /** 複数のセルにまとめて書き込む（スプレッドシートからの取り込み。元に戻すと1回で取り消せる） */
+  | { type: "setAmounts"; changes: { year: number; month: number; holdingId: string; value: number }[] }
   | { type: "copyPreviousMonth"; year: number; month: number };
 
 export interface StoreState {
@@ -95,6 +97,18 @@ export function applyEditAction(store: TameruStore, action: EditAction): TameruS
         if (prev[action.holdingId] === action.value) return prev;
         return { ...prev, [action.holdingId]: action.value };
       });
+
+    case "setAmounts": {
+      const liveIds = new Set(allHoldings(store).map((h) => h.id));
+      let next = store;
+      for (const c of action.changes) {
+        if (!liveIds.has(c.holdingId) || !Number.isFinite(c.value)) continue;
+        next = updateMonth(next, c.year, c.month, (prev) =>
+          prev[c.holdingId] === c.value ? prev : { ...prev, [c.holdingId]: c.value },
+        );
+      }
+      return next;
+    }
 
     case "copyPreviousMonth": {
       const src = shiftMonth(action.year, action.month, -1);

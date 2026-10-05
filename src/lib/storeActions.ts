@@ -36,6 +36,10 @@ export function createEditActions(dispatch: (action: EditAction) => void) {
     copyPreviousMonth(year: number, month: number) {
       dispatch({ type: "copyPreviousMonth", year, month });
     },
+    /** 複数のセルにまとめて書き込む（スプレッドシートからの取り込み） */
+    setAmounts(changes: { year: number; month: number; holdingId: string; value: number }[]) {
+      dispatch({ type: "setAmounts", changes });
+    },
   };
 }
 

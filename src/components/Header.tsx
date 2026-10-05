@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { PiggyBank } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { CircleHelp, PiggyBank } from "lucide-react";
 import { APP_VERSION, COMMIT_SHA } from "@/lib/version";
+import { HelpDialog } from "@/components/HelpDialog";
 
 interface HeaderProps {
   /** 右端に置く要素（同期メニュー） */
@@ -10,6 +11,8 @@ interface HeaderProps {
 }
 
 export function Header({ right }: HeaderProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -24,6 +27,15 @@ export function Header({ right }: HeaderProps) {
         </div>
         <div className="flex items-center justify-end gap-2.5">
           {right}
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            aria-label="ヘルプ"
+            title="ヘルプ"
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-teal-700"
+          >
+            <CircleHelp className="size-5" aria-hidden />
+          </button>
           <span
             className="text-[11px] tabular-nums text-slate-400"
             title={COMMIT_SHA ? `バージョン ${APP_VERSION}（${COMMIT_SHA}）` : `バージョン ${APP_VERSION}`}
@@ -32,6 +44,7 @@ export function Header({ right }: HeaderProps) {
           </span>
         </div>
       </div>
+      {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
     </header>
   );
 }
