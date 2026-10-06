@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Cloud, HardDrive, Info, LoaderCircle, LogIn, RefreshCw, ShieldCheck, Smartphone, TriangleAlert } from "lucide-react";
 import type { InitialChoiceRequest } from "@/hooks/useCloudSync";
 import type { StoreOverview } from "@/lib/sync/cloudSync";
@@ -44,7 +45,7 @@ export function LoginIntroDialog({
           },
           {
             icon: ok,
-            text: "TAMERU が受け取るのはメールアドレスだけです。Google アカウントのパスワードや、他のデータにはアクセスしません。",
+            text: "TAMERU が利用するのはメールアドレスだけです。Google アカウントのパスワードや、他のデータにはアクセスしません。",
           },
           {
             icon: info,
@@ -58,6 +59,17 @@ export function LoginIntroDialog({
           { icon: info, text: "ログアウトしても、この端末のデータは消えません。" },
         ]}
       />
+      <p className="mt-4 text-xs text-slate-500">
+        ログインすると、
+        <Link href="/terms" target="_blank" className="text-teal-700 underline underline-offset-2">
+          利用規約
+        </Link>
+        と
+        <Link href="/privacy" target="_blank" className="text-teal-700 underline underline-offset-2">
+          プライバシーポリシー
+        </Link>
+        に同意したものとみなします。
+      </p>
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button
           type="button"

@@ -18,6 +18,7 @@ import { SummaryCards } from "@/components/SummaryCards";
 import { AssetTable } from "@/components/AssetTable";
 import { TrendChart, type TrendRange } from "@/components/TrendChart";
 import { AllocationChart } from "@/components/AllocationChart";
+import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 
 export function TameruApp() {
   const { store, isLoaded, saveError, replaceStore } = useTameruStore();
@@ -99,10 +100,13 @@ export function TameruApp() {
           />
         </div>
       </main>
-      <footer className="px-4 py-6 text-center text-xs text-slate-400">
-        {sync.state.status === "signed-out"
-          ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
-          : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"}
+      <footer className="space-y-2 px-4 py-6 text-center text-xs text-slate-400">
+        <p>
+          {sync.state.status === "signed-out"
+            ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
+            : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"}
+        </p>
+        <SiteFooterLinks />
       </footer>
     </div>
   );
