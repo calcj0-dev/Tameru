@@ -5,12 +5,14 @@ test.describe("プライバシーポリシー・利用規約", () => {
   test("画面下のリンクから各ページを開き、TAMERU に戻れる", async ({ page }) => {
     await openApp(page, seedData({}));
     const footer = page.getByRole("navigation", { name: "サイト情報" });
+    await expect(footer.getByRole("link", { name: "お問い合わせ" })).toHaveAttribute("href", "https://forms.gle/gfChBXH4WaScyPL29");
 
     await footer.getByRole("link", { name: "プライバシーポリシー" }).click();
     await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole("heading", { level: 1, name: "プライバシーポリシー" })).toBeVisible();
     await expect(page.getByText("TAMERU 運営（以下「運営者」）")).toBeVisible();
     await expect(page.getByRole("heading", { name: "4. 外部サービスの利用" })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: "お問い合わせフォーム" })).toHaveAttribute("href", "https://forms.gle/gfChBXH4WaScyPL29");
 
     await page.getByRole("navigation", { name: "サイト情報" }).getByRole("link", { name: "利用規約" }).click();
     await expect(page).toHaveURL(/\/terms$/);
