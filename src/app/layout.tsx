@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +15,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITLE = "TAMERU（タメル）| スプレッドシート感覚の資産管理";
+const DESCRIPTION =
+  "口座連携不要・無料で使える資産管理アプリ。毎月の資産を記録して、推移と内訳をグラフで確認。スプレッドシートからの移行も簡単です。";
+
 export const metadata: Metadata = {
-  title: "TAMERU（タメル）| 資産管理",
-  description: "スプレッドシート感覚で資産と推移を積み上げる、口座連携不要・プライバシー重視の資産管理アプリ",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  // SNS で共有したときのプレビュー（画像は app/opengraph-image.png）
+  openGraph: { title: TITLE, description: DESCRIPTION, siteName: "TAMERU", locale: "ja_JP", type: "website" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
   applicationName: "TAMERU",
   // iOS: ホーム画面に追加したとき全画面（アドレスバーなし）で起動する
   appleWebApp: {

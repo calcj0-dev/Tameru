@@ -19,6 +19,7 @@ import { AssetTable } from "@/components/AssetTable";
 import { TrendChart, type TrendRange } from "@/components/TrendChart";
 import { AllocationChart } from "@/components/AllocationChart";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
+import { WelcomeCard } from "@/components/WelcomeCard";
 
 export function TameruApp() {
   const { store, isLoaded, saveError, replaceStore } = useTameruStore();
@@ -66,6 +67,8 @@ export function TameruApp() {
       />
       {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {/* 金額がまだ1つも入力されていない（初めて使う）ときだけ紹介を出す */}
+        {!summary.latest && <WelcomeCard />}
         {sync.backupNotice && (
           <BackupNotice
             message={

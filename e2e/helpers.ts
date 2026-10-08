@@ -35,17 +35,21 @@ export function seedData(amounts: Amounts = {}) {
 /** テストの「今日」。日付によって結果が変わらないよう固定する */
 export const TODAY = new Date("2026-10-15T10:00:00+09:00");
 
-/** 保存データを入れた状態でアプリを開く（null なら空の状態＝初回起動） */
-export async function openApp(page: Page, data: unknown | null = seedData()) {
+/**
+ * 保存データを入れた状態でアプリを開く（null なら空の状態＝初回起動）。
+ * 初回の紹介カードは、welcome: true のときだけ表示する（ほかのテストの邪魔にならないように）
+ */
+export async function openApp(page: Page, data: unknown | null = seedData(), { welcome = false } = {}) {
   await page.clock.setFixedTime(TODAY);
   // アプリが起動すると初期データを保存してしまうため、アプリを読み込まないページ（同じドメイン）で先にデータを入れる
   await page.goto("/manifest.webmanifest");
   await page.evaluate(
-    ([key, value]) => {
+    ([key, value, showWelcome]) => {
       localStorage.clear();
       if (value) localStorage.setItem(key, value);
+      if (!showWelcome) localStorage.setItem("tameru:welcome-dismissed", "1");
     },
-    [STORAGE_KEY, data ? JSON.stringify(data) : null] as const,
+    [STORAGE_KEY, data ? JSON.stringify(data) : null, welcome] as const,
   );
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
