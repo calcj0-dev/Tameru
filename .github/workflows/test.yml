@@ -31,7 +31,7 @@ jobs:
       - run: npm ci
 
       - name: Playwright のブラウザをインストール
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: コードチェック（lint）
         run: npm run lint

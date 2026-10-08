@@ -25,6 +25,7 @@ export default defineConfig({
   projects: [
     { name: "desktop", testDir: "./e2e/app", use: { ...devices["Desktop Chrome"], viewport: { width: 1400, height: 1000 } } },
     { name: "mobile", testDir: "./e2e/app", use: { ...devices["Pixel 7"] } },
+    { name: "iphone", testDir: "./e2e/app", use: { ...devices["iPhone 14"] } },
   ],
   webServer: {
     command: `npm run start -- -p ${PORT}`,

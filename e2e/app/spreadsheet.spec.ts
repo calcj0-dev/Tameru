@@ -2,18 +2,21 @@ import { expect, test } from "@playwright/test";
 import { cell, openApp, seedData, storedMonth } from "../helpers";
 
 test.describe("スプレッドシート連携", () => {
-  test.beforeEach(async ({ page, context }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  test.beforeEach(async ({ page, context, browserName }) => {
+    // クリップボードの権限指定は Chrome のみ（WebKit は権限なしで使える）
+    if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openApp(page, seedData({ "2026-01": { h1: 100 } }));
     await page.getByRole("button", { name: "編集", exact: true }).click();
     await page.getByRole("button", { name: "スプレッドシート連携" }).click();
   });
 
-  test("① アプリの口座・内訳に合わせた表を出力（コピー）できる", async ({ page }) => {
+  test("① アプリの口座・内訳に合わせた表を出力（コピー）できる", async ({ page, browserName }) => {
     const dialog = page.getByRole("dialog", { name: "スプレッドシートと連携" });
     await expect(dialog.getByText("先に、TAMERU の表で口座と内訳（資産クラス・地域も）を作っておきます")).toBeVisible();
     await dialog.getByRole("button", { name: "表をコピー" }).click();
     await expect(dialog.getByRole("button", { name: "コピーしました" })).toBeVisible();
+    // テストからクリップボードの中身を読めるのは Chrome のみ（WebKit はコピーできたことまで確認）
+    if (browserName !== "chromium") return;
     const tsv = await page.evaluate(() => navigator.clipboard.readText());
     const rows = tsv.split("\n").map((r) => r.split("\t"));
     expect(rows[0].slice(0, 3)).toEqual(["口座名", "メモ", "2026年1月"]);
