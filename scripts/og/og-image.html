@@ -1,27 +1,59 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><style>
 *{margin:0;box-sizing:border-box}
 body{width:1200px;height:630px;font-family:"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif;background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);color:#fff;position:relative;overflow:hidden}
-.wrap{position:absolute;inset:0;padding:72px 80px;display:flex;flex-direction:column}
+.left{position:absolute;left:80px;top:0;bottom:0;width:520px;display:flex;flex-direction:column;justify-content:center}
 .brand{display:flex;align-items:center;gap:22px}
 .logo{width:92px;height:92px;border-radius:24px;background:#fff;display:grid;place-items:center;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .name{font-size:64px;font-weight:800;letter-spacing:.14em}
-.kana{font-size:24px;opacity:.85;margin-top:2px;letter-spacing:.1em}
-.copy{margin-top:46px;font-size:50px;font-weight:700;line-height:1.35}
-.points{margin-top:34px;display:flex;flex-direction:column;gap:14px;font-size:28px;font-weight:600}
-.points div{display:flex;align-items:center;gap:14px}
-.check{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:20px}
-.chart{position:absolute;right:64px;bottom:64px;width:430px;height:196px;background:rgba(255,255,255,.96);border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.2);padding:26px 28px}
-.chart .t{color:#64748b;font-size:20px;font-weight:600}
-.chart .v{color:#0f172a;font-size:34px;font-weight:800;margin-top:4px}
-.chart .d{position:absolute;right:28px;top:26px;color:#059669;font-size:20px;font-weight:700}
-</style></head><body><div class="wrap">
-<div class="brand"><div class="logo"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><path d="M16 10h.01"/><path d="M2 8v1a2 2 0 0 0 2 2h1"/></svg></div>
-<div><div class="name">TAMERU</div><div class="kana">タメル</div></div></div>
-<div class="copy">資産を、<br>スプレッドシート感覚で積み上げる</div>
-<div class="points"><div><span class="check">✓</span>無料・登録なしですぐ使える</div><div><span class="check">✓</span>銀行や証券の口座連携は不要</div><div><span class="check">✓</span>スプレッドシートから移行できる</div></div>
+.copy{margin-top:56px;font-size:56px;font-weight:700;line-height:1.4}
+.card{position:absolute;right:64px;top:56px;bottom:56px;width:500px;background:#fff;border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.22);padding:26px 30px;color:#0f172a}
+.label{color:#64748b;font-size:17px;font-weight:700}
+.total{display:flex;align-items:baseline;justify-content:space-between;margin-top:2px}
+.total .v{font-size:38px;font-weight:800}
+.total .d{color:#059669;font-size:18px;font-weight:700}
+.sep{height:1px;background:#e2e8f0;margin:16px 0}
+.alloc{display:flex;align-items:center;gap:26px;margin-top:10px}
+.legend{display:flex;flex-direction:column;gap:9px;font-size:16px;color:#334155;font-weight:600}
+.legend div{display:flex;align-items:center;gap:10px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.legend b{margin-left:auto;padding-left:16px;color:#0f172a}
+</style></head><body>
+<div class="left">
+  <div class="brand"><div class="logo"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><path d="M16 10h.01"/><path d="M2 8v1a2 2 0 0 0 2 2h1"/></svg></div>
+  <div class="name">TAMERU</div></div>
+  <div class="copy">貯めて、眺めて、<br>続けられる資産管理</div>
 </div>
-<div class="chart"><div class="t">総資産</div><div class="v">¥12,480,000</div><div class="d">↗ 前年比 +18.2%</div>
-<svg width="374" height="64" viewBox="0 0 374 120" preserveAspectRatio="none" style="margin-top:8px"><defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14b8a6" stop-opacity=".35"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></linearGradient></defs>
-<path d="M0 104 L34 98 L68 100 L102 88 L136 84 L170 86 L204 70 L238 62 L272 64 L306 46 L340 34 L374 18 L374 120 L0 120Z" fill="url(#a)"/>
-<path d="M0 104 L34 98 L68 100 L102 88 L136 84 L170 86 L204 70 L238 62 L272 64 L306 46 L340 34 L374 18" fill="none" stroke="#0d9488" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+
+<div class="card">
+  <div class="label">総資産</div>
+  <div class="total"><span class="v">¥12,480,000</span><span class="d">↗ 前年比 +18.2%</span></div>
+  <div class="sep"></div>
+  <div class="label">資産推移</div>
+  <svg width="440" height="110" viewBox="-2 -6 450 116" style="margin-top:8px">
+    <defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14b8a6" stop-opacity=".35"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" y1="27" x2="440" y2="27" stroke="#f1f5f9"/><line x1="0" y1="62" x2="440" y2="62" stroke="#f1f5f9"/><line x1="0" y1="97" x2="440" y2="97" stroke="#e2e8f0"/>
+    <path d="M0 92 L40 88 L80 89 L120 79 L160 76 L200 77 L240 63 L280 56 L320 58 L360 42 L400 32 L440 16 L440 97 L0 97Z" fill="url(#a)"/>
+    <path d="M0 92 L40 88 L80 89 L120 79 L160 76 L200 77 L240 63 L280 56 L320 58 L360 42 L400 32 L440 16" fill="none" stroke="#0d9488" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="440" cy="16" r="5" fill="#0d9488"/>
+  </svg>
+  <div class="sep"></div>
+  <div class="label">ポートフォリオ構成比</div>
+  <div class="alloc">
+    <!-- ドーナツ: 投資信託 58% / 株式 22% / 現金 15% / その他 5%（円周 = 2π×42 ≈ 263.9） -->
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <g transform="rotate(-90 60 60)" fill="none" stroke-width="20">
+        <circle cx="60" cy="60" r="42" stroke="#0d9488" stroke-dasharray="153.1 263.9" stroke-dashoffset="0"/>
+        <circle cx="60" cy="60" r="42" stroke="#6366f1" stroke-dasharray="58.1 263.9" stroke-dashoffset="-153.1"/>
+        <circle cx="60" cy="60" r="42" stroke="#0ea5e9" stroke-dasharray="39.6 263.9" stroke-dashoffset="-211.2"/>
+        <circle cx="60" cy="60" r="42" stroke="#cbd5e1" stroke-dasharray="13.2 263.9" stroke-dashoffset="-250.8"/>
+      </g>
+    </svg>
+    <div class="legend">
+      <div><i style="background:#0d9488"></i>投資信託<b>58%</b></div>
+      <div><i style="background:#6366f1"></i>株式<b>22%</b></div>
+      <div><i style="background:#0ea5e9"></i>現金<b>15%</b></div>
+      <div><i style="background:#cbd5e1"></i>その他<b>5%</b></div>
+    </div>
+  </div>
+</div>
 </body></html>

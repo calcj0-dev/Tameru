@@ -22,7 +22,7 @@ export function Header({ right }: HeaderProps) {
           </div>
           <div className="leading-tight">
             <h1 className="text-lg font-bold tracking-[0.12em] text-slate-900">TAMERU</h1>
-            <p className="hidden text-[11px] text-slate-500 sm:block">資産を、スプレッドシート感覚で積み上げる</p>
+            <p className="hidden text-[11px] text-slate-500 sm:block">貯めて、眺めて、続けられる資産管理</p>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2.5">

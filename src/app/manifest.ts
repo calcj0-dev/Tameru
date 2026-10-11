@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "TAMERU（タメル）",
+    name: "TAMERU",
     short_name: "TAMERU",
     description: "スプレッドシート感覚で資産と推移を積み上げる、口座連携不要・プライバシー重視の資産管理アプリ",
     lang: "ja",
