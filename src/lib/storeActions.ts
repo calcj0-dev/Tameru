@@ -30,6 +30,14 @@ export function createEditActions(dispatch: (action: EditAction) => void) {
     removeHolding(holdingId: string) {
       dispatch({ type: "removeHolding", holdingId });
     },
+    /** 口座を1つ上（-1）・下（1）へ移動 */
+    moveAccount(accountId: string, offset: -1 | 1) {
+      dispatch({ type: "moveAccount", accountId, offset });
+    },
+    /** 内訳を同じ口座の中で1つ上（-1）・下（1）へ移動 */
+    moveHolding(holdingId: string, offset: -1 | 1) {
+      dispatch({ type: "moveHolding", holdingId, offset });
+    },
     setAmount(year: number, month: number, holdingId: string, value: number | null) {
       dispatch({ type: "setAmount", year, month, holdingId, value });
     },

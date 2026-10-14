@@ -88,3 +88,34 @@ describe("stableStringify / hasNoAmounts", () => {
     expect(hasNoAmounts(base)).toBe(false);
   });
 });
+
+describe("mergeStores: 並び順", () => {
+  const ids = (s: TameruStore) => s.accounts.map((a) => a.id);
+
+  it("この端末で口座を並び替えた → クラウドに変更がなくても、並び替えた順が残る", () => {
+    const local = clone(base);
+    local.accounts.reverse();
+    expect(ids(mergeStores(base, local, clone(base)))).toEqual(["a2", "a1"]);
+  });
+
+  it("クラウド側（別の端末）で並び替えた → その順になる", () => {
+    const remote = clone(base);
+    remote.accounts.reverse();
+    expect(ids(mergeStores(base, clone(base), remote))).toEqual(["a2", "a1"]);
+  });
+
+  it("この端末で並び替え、クラウドでは口座を追加 → 並び替えた順のあとに追加分が入る", () => {
+    const local = clone(base);
+    local.accounts.reverse();
+    const remote = clone(base);
+    remote.accounts.push(account("a3", "楽天証券", [holding("h4")]));
+    expect(ids(mergeStores(base, local, remote))).toEqual(["a2", "a1", "a3"]);
+  });
+
+  it("内訳の並び替えも残る", () => {
+    const local = clone(base);
+    local.accounts[1].holdings.reverse();
+    const merged = mergeStores(base, local, clone(base));
+    expect(merged.accounts[1].holdings.map((h) => h.id)).toEqual(["h3", "h2"]);
+  });
+});

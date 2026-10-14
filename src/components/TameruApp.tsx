@@ -19,6 +19,7 @@ import { AssetTable } from "@/components/AssetTable";
 import { TrendChart, type TrendRange } from "@/components/TrendChart";
 import { AllocationChart } from "@/components/AllocationChart";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
+import { SiteAbout } from "@/components/SiteAbout";
 import { WelcomeCard } from "@/components/WelcomeCard";
 
 export function TameruApp() {
@@ -103,7 +104,8 @@ export function TameruApp() {
           />
         </div>
       </main>
-      <footer className="space-y-2 px-4 py-6 text-center text-xs text-slate-400">
+      <footer className="space-y-4 px-4 py-6 text-center text-xs text-slate-400">
+        <SiteAbout />
         <p>
           {sync.state.status === "signed-out"
             ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
@@ -148,11 +150,15 @@ function BackupNotice({ message, onRestore, onClose }: { message: string; onRest
   );
 }
 
+/**
+ * データの読み込み中の表示。ヘッダー・紹介文・リンクは、読み込み前から HTML に含めておく
+ * （検索エンジンや、表示が遅い端末でも何のサイトか分かるように）
+ */
 function LoadingSkeleton() {
   return (
-    <div className="flex min-h-full flex-col" aria-busy="true">
-      <div className="h-[61px] border-b border-slate-200/80 bg-white" />
-      <div className="mx-auto w-full max-w-7xl animate-pulse space-y-6 px-4 py-6 sm:px-6">
+    <div className="flex min-h-full flex-col">
+      <Header right={null} />
+      <div className="mx-auto w-full max-w-7xl flex-1 animate-pulse space-y-6 px-4 py-6 sm:px-6" aria-busy="true" aria-label="読み込み中">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-32 rounded-2xl bg-slate-200/70" />
@@ -160,6 +166,10 @@ function LoadingSkeleton() {
         </div>
         <div className="h-80 rounded-2xl bg-slate-200/70" />
       </div>
+      <footer className="space-y-4 px-4 py-6 text-center text-xs text-slate-400">
+        <SiteAbout />
+        <SiteFooterLinks />
+      </footer>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import type { AssetAccount, Holding, TameruStore, YearlyData } from "../../types
  * （いま保存しようとしている＝より新しい操作とみなす）。
  *
  * - 口座・内訳: ID 単位。追加は両方から取り込み、どちらかで削除されたものは削除する
+ * - 並び順: この端末で並び替えていればこの端末の順、そうでなければクラウドの順
  * - 名称・メモ・資産クラス・地域: 項目ごとに判定
  * - 金額: 「年 × 月 × 内訳」のセルごとに判定
  */
@@ -40,7 +41,8 @@ function pick<T>(base: T | undefined, local: T, remote: T): T {
 }
 
 /**
- * ID を持つ配列の3者マージ。並び順は remote を基準に、local だけで追加されたものを末尾に足す。
+ * ID を持つ配列の3者マージ。
+ * 並び順は、local が並び替えていれば local、そうでなければ remote を基準にし、もう片方だけで追加されたものを末尾に足す。
  */
 function mergeById<T extends { id: string }>(
   base: T[],
@@ -67,16 +69,27 @@ function mergeById<T extends { id: string }>(
     return l ?? r ?? null;
   };
 
-  for (const r of remote) {
-    const merged = decide(r.id);
+  const [primary, secondary] = isReordered(base, local) ? [local, remote] : [remote, local];
+  const primaryIds = new Set(primary.map((x) => x.id));
+  for (const x of primary) {
+    const merged = decide(x.id);
     if (merged) result.push(merged);
   }
-  for (const l of local) {
-    if (remoteMap.has(l.id)) continue;
-    const merged = decide(l.id);
+  for (const x of secondary) {
+    if (primaryIds.has(x.id)) continue;
+    const merged = decide(x.id);
     if (merged) result.push(merged);
   }
   return result;
+}
+
+/** 両方にある要素の並び順が、base と比べて変わっているか */
+function isReordered(base: { id: string }[], next: { id: string }[]): boolean {
+  const nextIds = new Set(next.map((x) => x.id));
+  const baseIds = new Set(base.map((x) => x.id));
+  const a = base.map((x) => x.id).filter((id) => nextIds.has(id));
+  const b = next.map((x) => x.id).filter((id) => baseIds.has(id));
+  return a.some((id, i) => id !== b[i]);
 }
 
 function mergeAmounts(

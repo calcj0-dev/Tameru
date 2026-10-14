@@ -4,7 +4,7 @@ import { openApp, seedData, STORAGE_KEY, storedData } from "../helpers";
 test.describe("起動・表示", () => {
   test("初回起動: サンプル口座が表示され、参照のみ・未入力の状態で始まる", async ({ page }) => {
     await openApp(page, null);
-    await expect(page.getByRole("heading", { name: "TAMERU" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "TAMERU", exact: true })).toBeVisible();
     await expect(page.getByText(/^v\d+\.\d+\.\d+$/)).toBeVisible(); // バージョン表示
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("まだデータが入力されていません");
     await expect(page.getByRole("button", { name: "編集", exact: true })).toBeVisible();

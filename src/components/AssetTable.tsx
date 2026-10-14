@@ -2,6 +2,8 @@
 
 import { Fragment, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronRight,
   CopyPlus,
@@ -476,6 +478,13 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                                 {account.holdings.length}/{MAX_HOLDINGS_PER_ACCOUNT}
                               </span>
                             </button>
+                            <ReorderButtons
+                              label={`口座「${account.name || "名称未設定"}」`}
+                              canUp={accountIndex > 0}
+                              canDown={accountIndex < store.accounts.length - 1}
+                              onMove={(offset) => actions.moveAccount(account.id, offset)}
+                              revealClass="can-hover:group-hover/account:opacity-100"
+                            />
                             <button
                               type="button"
                               onClick={() => handleRemoveAccount(account)}
@@ -510,7 +519,7 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
 
                   {/* 内訳行 */}
                   {!isCollapsed &&
-                    account.holdings.map((holding) => (
+                    account.holdings.map((holding, holdingIndex) => (
                       <tr key={holding.id} className="group/holding">
                         <th
                           scope="row"
@@ -573,6 +582,13 @@ export function AssetTable({ savedStore, year, currentYear, onYearChange, highli
                                   />
                                 </div>
                               </div>
+                              <ReorderButtons
+                                label={`内訳「${holding.memo || "メモなし"}」`}
+                                canUp={holdingIndex > 0}
+                                canDown={holdingIndex < account.holdings.length - 1}
+                                onMove={(offset) => actions.moveHolding(holding.id, offset)}
+                                revealClass="can-hover:group-hover/holding:opacity-100"
+                              />
                               <button
                                 type="button"
                                 onClick={() => handleRemoveHolding(holding)}
@@ -744,5 +760,35 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="mx-0.5 rounded border border-slate-200 bg-slate-50 px-1 py-px font-sans text-[10px] text-slate-600">
       {children}
     </kbd>
+  );
+}
+
+/** 並び替えの ↑↓ ボタン（編集中のみ）。マウスで操作する端末では、行にカーソルを合わせたときに表示する */
+function ReorderButtons({
+  label,
+  canUp,
+  canDown,
+  onMove,
+  revealClass,
+}: {
+  label: string;
+  canUp: boolean;
+  canDown: boolean;
+  onMove: (offset: -1 | 1) => void;
+  /** 行にカーソルを合わせたときに表示するためのクラス（group 名が行ごとに違うため外から渡す） */
+  revealClass: string;
+}) {
+  if (!canUp && !canDown) return null;
+  const button =
+    "grid h-5 w-7 place-items-center rounded text-slate-500 transition hover:bg-white hover:text-teal-700 disabled:invisible can-hover:h-4 can-hover:w-6";
+  return (
+    <div className={cn("flex shrink-0 flex-col can-hover:opacity-0 can-hover:focus-within:opacity-100", revealClass)}>
+      <button type="button" onClick={() => onMove(-1)} disabled={!canUp} aria-label={`${label}を上へ移動`} title="上へ移動" className={button}>
+        <ArrowUp className="size-3.5" aria-hidden />
+      </button>
+      <button type="button" onClick={() => onMove(1)} disabled={!canDown} aria-label={`${label}を下へ移動`} title="下へ移動" className={button}>
+        <ArrowDown className="size-3.5" aria-hidden />
+      </button>
+    </div>
   );
 }
