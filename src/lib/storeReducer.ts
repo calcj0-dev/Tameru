@@ -13,6 +13,8 @@ export type StoreAction =
   | { type: "addHolding"; accountId: string; holding: Holding }
   | { type: "updateHolding"; holdingId: string; patch: HoldingPatch }
   | { type: "removeHolding"; holdingId: string }
+  | { type: "moveAccount"; accountId: string; offset: -1 | 1 } // 口座の並び替え（1つ上・下へ）
+  | { type: "moveHolding"; holdingId: string; offset: -1 | 1 } // 内訳の並び替え（同じ口座の中で1つ上・下へ）
   | { type: "setAmount"; year: number; month: number; holdingId: string; value: number | null }
   /** 複数のセルにまとめて書き込む（スプレッドシートからの取り込み。元に戻すと1回で取り消せる） */
   | { type: "setAmounts"; changes: { year: number; month: number; holdingId: string; value: number }[] }
@@ -85,6 +87,17 @@ export function applyEditAction(store: TameruStore, action: EditAction): TameruS
       );
       return removeAmounts(next, new Set([action.holdingId]));
     }
+
+    case "moveAccount": {
+      const accounts = moveItem(store.accounts, action.accountId, action.offset);
+      return accounts === store.accounts ? store : { ...store, accounts };
+    }
+
+    case "moveHolding":
+      return mapAccounts(store, (a) => {
+        const holdings = moveItem(a.holdings, action.holdingId, action.offset);
+        return holdings === a.holdings ? a : { ...a, holdings };
+      });
 
     case "setAmount":
       return updateMonth(store, action.year, action.month, (prev) => {
@@ -192,4 +205,14 @@ function updateMonth(
     delete yearlyData[year];
   }
   return { ...store, yearlyData };
+}
+
+/** id の要素を offset だけ移動した新しい配列。移動できない（先頭・末尾・見つからない）ときは元の配列を返す */
+function moveItem<T extends { id: string }>(items: T[], id: string, offset: -1 | 1): T[] {
+  const from = items.findIndex((x) => x.id === id);
+  const to = from + offset;
+  if (from < 0 || to < 0 || to >= items.length) return items;
+  const next = [...items];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
 }

@@ -107,3 +107,31 @@ describe("fillEmptyWithZero（保存時の0埋め）", () => {
     expect(fillEmptyWithZero(s)).toBe(s);
   });
 });
+
+describe("口座・内訳の並び替え", () => {
+  it("口座を1つ上・下へ移動できる。金額はそのまま", () => {
+    const s = store(sampleAccounts(), { "2026-01": { h1: 1, h2: 2 } });
+    const down = applyEditAction(s, { type: "moveAccount", accountId: "a1", offset: 1 });
+    expect(down.accounts.map((a) => a.id)).toEqual(["a2", "a1"]);
+    expect(down.yearlyData).toBe(s.yearlyData);
+    const up = applyEditAction(down, { type: "moveAccount", accountId: "a1", offset: -1 });
+    expect(up.accounts.map((a) => a.id)).toEqual(["a1", "a2"]);
+  });
+
+  it("先頭より上・末尾より下へは動かない（データは変わらない）", () => {
+    const s = store(sampleAccounts());
+    expect(applyEditAction(s, { type: "moveAccount", accountId: "a1", offset: -1 })).toBe(s);
+    expect(applyEditAction(s, { type: "moveAccount", accountId: "a2", offset: 1 })).toBe(s);
+    expect(applyEditAction(s, { type: "moveAccount", accountId: "zz", offset: 1 })).toBe(s);
+  });
+
+  it("内訳は同じ口座の中で移動する。端では動かない", () => {
+    const s = store(sampleAccounts());
+    const moved = applyEditAction(s, { type: "moveHolding", holdingId: "h3", offset: -1 });
+    expect(moved.accounts[1].holdings.map((h) => h.id)).toEqual(["h3", "h2"]);
+    expect(moved.accounts[0]).toBe(s.accounts[0]);
+    // 口座をまたいでは動かない
+    expect(applyEditAction(s, { type: "moveHolding", holdingId: "h2", offset: -1 })).toBe(s);
+    expect(applyEditAction(s, { type: "moveHolding", holdingId: "h1", offset: 1 })).toBe(s);
+  });
+});
