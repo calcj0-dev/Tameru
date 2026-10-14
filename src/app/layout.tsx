@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 const TITLE = "TAMERU | 貯めて、眺めて、続けられる資産管理";
 const DESCRIPTION =
-  "口座連携不要・無料で使える資産管理アプリ。毎月の資産を記録して、推移と内訳をグラフで確認。スプレッドシートからの移行も簡単です。";
+  "口座連携なし・手入力で使える無料の資産管理アプリ。スプレッドシート（Excel）で管理していた資産の記録はコピー＆貼り付けで移行でき、毎月の総資産と資産推移をグラフで記録・確認できます。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

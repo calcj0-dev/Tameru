@@ -39,7 +39,7 @@ test.describe("共有時のプレビュー・検索エンジン向けの設定",
     await page.goto("/");
     const meta = (selector: string) => page.locator(selector).first().getAttribute("content");
     expect(await meta('meta[property="og:title"]')).toContain("TAMERU");
-    expect(await meta('meta[property="og:description"]')).toContain("口座連携不要");
+    expect(await meta('meta[property="og:description"]')).toContain("口座連携なし");
     expect(await meta('meta[name="twitter:card"]')).toBe("summary_large_image");
     const image = await meta('meta[property="og:image"]');
     expect(image).toMatch(/^https:\/\/tameru-lovat\.vercel\.app\/opengraph-image/);
@@ -47,6 +47,16 @@ test.describe("共有時のプレビュー・検索エンジン向けの設定",
     const res = await request.get(new URL(image!).pathname + new URL(image!).search);
     expect(res.status()).toBe(200);
     expect(res.headers()["content-type"]).toBe("image/png");
+  });
+
+  test("データの読み込み前の HTML にも、見出し・紹介文・リンクが入っている（検索エンジン向け）", async ({ request }) => {
+    const html = await (await request.get("/")).text();
+    expect(html).toMatch(/<h1[^>]*>TAMERU<\/h1>/);
+    expect(html).toContain("TAMERU について");
+    expect(html).toContain("口座連携なし");
+    expect(html).toContain("スプレッドシート");
+    expect(html).toContain("総資産の推移");
+    expect(html).toContain("プライバシーポリシー");
   });
 
   test("robots.txt と sitemap.xml が配信されている", async ({ request }) => {
