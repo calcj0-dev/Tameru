@@ -41,6 +41,7 @@ test.describe("共有時のプレビュー・検索エンジン向けの設定",
     expect(await meta('meta[property="og:title"]')).toContain("TAMERU");
     expect(await meta('meta[property="og:description"]')).toContain("口座連携なし");
     expect(await meta('meta[name="twitter:card"]')).toBe("summary_large_image");
+    expect(await meta('meta[name="google-site-verification"]')).toBe("tpdmdzFZtgnY3Z6pjSQLo6TUP3nEaCx9HZ00VcoyMpc");
     const image = await meta('meta[property="og:image"]');
     expect(image).toMatch(/^https:\/\/tameru-lovat\.vercel\.app\/opengraph-image/);
     // 画像そのものが配信されている（ドメイン部分は手元のサーバーに置き換えて確認）

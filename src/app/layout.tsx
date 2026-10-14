@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   // SNS で共有したときのプレビュー（画像は app/opengraph-image.png）
   openGraph: { title: TITLE, description: DESCRIPTION, siteName: "TAMERU", locale: "ja_JP", type: "website" },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  // Google Search Console の所有権の確認
+  verification: { google: "tpdmdzFZtgnY3Z6pjSQLo6TUP3nEaCx9HZ00VcoyMpc" },
   applicationName: "TAMERU",
   // iOS: ホーム画面に追加したとき全画面（アドレスバーなし）で起動する
   appleWebApp: {
