@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { goToYear, openApp, seedData } from "../helpers";
+import { goToYear, openApp, seedData, tab } from "../helpers";
 
 // 2024年1月〜2026年9月まで毎月入力済みのデータ
 function multiYear() {
@@ -23,17 +23,26 @@ test.describe("サマリーとグラフ", () => {
     await openApp(page, multiYear());
   });
 
-  test("入力表の年を切り替えても、サマリー・推移・構成比は最新の値のまま", async ({ page }) => {
+  test("記録の画面で年を切り替えても、ホームのサマリー・推移・構成比は最新の値のまま。タブを行き来しても状態は保たれる", async ({ page }) => {
     const summary = page.getByRole("region", { name: "サマリー" });
     const before = await summary.innerText();
     const trendBefore = await trendPanel(page).locator("p").first().innerText();
+    await trendPanel(page).getByRole("button", { name: "2年" }).click();
 
+    await tab(page, "記録").click();
     await goToYear(page, 2024);
     await expect(page.locator("span[aria-live='polite']").first()).toHaveText("2024年");
-    expect(await summary.innerText()).toBe(before);
-    expect(await trendPanel(page).locator("p").first().innerText()).toBe(trendBefore);
-    await expect(allocationPanel(page)).toContainText("2026年9月末時点");
 
+    await tab(page, "ホーム").click();
+    expect(await summary.innerText()).toBe(before);
+    await expect(allocationPanel(page)).toContainText("2026年9月末時点");
+    // 資産推移の期間（2年）も保たれている
+    await expect(trendPanel(page).getByRole("button", { name: "2年" })).toHaveAttribute("aria-pressed", "true");
+    expect(trendBefore).not.toBe("");
+
+    // 記録の画面に戻ると、選んだ年（2024年）のまま
+    await tab(page, "記録").click();
+    await expect(page.locator("span[aria-live='polite']").first()).toHaveText("2024年");
     await page.getByRole("button", { name: "今年へ" }).click();
     await expect(page.locator("span[aria-live='polite']").first()).toHaveText("2026年");
   });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openApp, seedData, STORAGE_KEY, storedData } from "../helpers";
+import { openApp, seedData, STORAGE_KEY, storedData, tab } from "../helpers";
 
 test.describe("起動・表示", () => {
   test("初回起動: サンプル口座が表示され、参照のみ・未入力の状態で始まる", async ({ page }) => {
@@ -7,6 +7,9 @@ test.describe("起動・表示", () => {
     await expect(page.getByRole("heading", { name: "TAMERU", exact: true })).toBeVisible();
     await expect(page.getByText(/^v\d+\.\d+\.\d+$/)).toBeVisible(); // バージョン表示
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("まだデータが入力されていません");
+    await expect(tab(page, "ホーム")).toHaveAttribute("aria-current", "page");
+
+    await tab(page, "記録").click();
     await expect(page.getByRole("button", { name: "編集", exact: true })).toBeVisible();
     await expect(page.locator("input[data-cell]")).toHaveCount(0); // 参照のみ: 入力欄なし
     await expect(page.getByText("SBI証券")).toBeVisible();
@@ -17,6 +20,8 @@ test.describe("起動・表示", () => {
     const summary = page.getByRole("region", { name: "サマリー" });
     await expect(summary).toContainText("¥3,480,000");
     await expect(summary).toContainText("2026年9月末時点");
+    // 記録の画面の「合計」の行
+    await tab(page, "記録").click();
     await expect(page.locator("tfoot")).toContainText("3,480,000");
   });
 
@@ -44,15 +49,18 @@ test.describe("起動・表示", () => {
     await page.goto("/manifest.webmanifest");
     await page.evaluate((k) => localStorage.setItem(k, "{broken json"), STORAGE_KEY);
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
     const backups = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("tameru:store:backup:")));
     expect(backups.length).toBeGreaterThan(0);
   });
 
-  test("画面が横にはみ出さない", async ({ page }) => {
+  test("画面が横にはみ出さない（ホーム・記録）", async ({ page }) => {
     await openApp(page, seedData({ "2026-09": { h1: 123_456_789 } }));
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    expect(overflow).toBeLessThanOrEqual(0);
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(await overflow()).toBeLessThanOrEqual(0);
+    await tab(page, "記録").click();
+    await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+    expect(await overflow()).toBeLessThanOrEqual(0);
   });
 });
 

@@ -43,6 +43,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0d9488",
+  // iPhone の画面下のバー（ホームインジケーター）の高さを env(safe-area-inset-bottom) で取れるようにする（下のタブの余白に使う）
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

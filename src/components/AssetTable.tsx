@@ -38,6 +38,8 @@ interface AssetTableProps {
   highlightMonth: number | null;
   /** 「保存」時に、空欄を0で埋めたデータを渡す */
   onSave: (store: TameruStore) => void;
+  /** 保存していない変更の有無が変わったとき（画面を移る前の確認に使う） */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 type PendingFocus = { kind: "account" | "holding"; id: string };
@@ -52,11 +54,28 @@ const DISCARD_MESSAGE = "保存していない変更があります。変更を�
  * - 編集: 保存済みデータのコピー（下書き）を編集し、「保存」で反映する。「キャンセル」で破棄。どちらも参照のみに戻る
  *   編集中は「元に戻す」「やり直す」（Ctrl+Z / Ctrl+Y・Ctrl+Shift+Z）が使える
  */
-export function AssetTable({ savedStore, year, currentYear, onYearChange, highlightMonth, onSave }: AssetTableProps) {
+export function AssetTable({
+  savedStore,
+  year,
+  currentYear,
+  onYearChange,
+  highlightMonth,
+  onSave,
+  onDirtyChange,
+}: AssetTableProps) {
   // 下書き。draft=null は参照のみ。開くたびに参照のみから始める（状態は保存しない）
   const [draftState, dispatchDraft] = useReducer(draftReducer, INITIAL_DRAFT);
   const { draft } = draftState;
   const dirty = isDirty(draftState);
+  // 保存していない変更の有無を外へ知らせる。画面を離れる（この表が消える）ときは「変更なし」に戻す
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  useEffect(() => {
+    onDirtyChangeRef.current = onDirtyChange;
+  });
+  useEffect(() => {
+    onDirtyChangeRef.current?.(dirty);
+  }, [dirty]);
+  useEffect(() => () => onDirtyChangeRef.current?.(false), []);
   const canUndo = draftState.past.length > 0;
   const canRedo = draftState.future.length > 0;
   const actions = useMemo(

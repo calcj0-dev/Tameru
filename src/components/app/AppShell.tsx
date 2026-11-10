@@ -1,58 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { History, X } from "lucide-react";
 import { useTameruStore } from "@/hooks/useTameruStore";
 import { useCloudSync } from "@/hooks/useCloudSync";
+import { computeSummary, type AllocationMode } from "@/lib/assetCalc";
+import type { TrendRange } from "@/components/TrendChart";
+import { Header } from "@/components/Header";
 import { SyncMenu } from "@/components/SyncMenu";
 import { InitialSyncDialog } from "@/components/SyncDialogs";
-import { History, X } from "lucide-react";
-import {
-  buildAllocationData,
-  buildTrendData,
-  computeSummary,
-  trendPeriod,
-  type AllocationMode,
-} from "@/lib/assetCalc";
-import { Header } from "@/components/Header";
-import { SummaryCards } from "@/components/SummaryCards";
-import { AssetTable } from "@/components/AssetTable";
-import { TrendChart, type TrendRange } from "@/components/TrendChart";
-import { AllocationChart } from "@/components/AllocationChart";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { SiteAbout } from "@/components/SiteAbout";
-import { WelcomeCard } from "@/components/WelcomeCard";
+import { AppContext, type AppState } from "@/components/app/AppContext";
+import { TabNav } from "@/components/app/TabNav";
 
-export function TameruApp() {
+/**
+ * ホーム・記録の2画面に共通の枠。データ・同期・ヘッダー・タブ・画面下を持ち、その中で画面（children）だけを入れ替える。
+ * タブを切り替えても、データの読み込みや Google ログインの準備はやり直さない。
+ */
+export function AppShell({ children }: { children: ReactNode }) {
   const { store, isLoaded, saveError, replaceStore } = useTameruStore();
   const sync = useCloudSync({ store, isLoaded, replaceStore });
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
   const [trendRange, setTrendRange] = useState<TrendRange>(1);
+  const unsavedChangesRef = useRef(false);
+  const summary = useMemo(() => computeSummary(store), [store]);
+
+  if (!isLoaded) return <LoadingShell />;
 
   // new Date() はマウント後（isLoaded=true）にのみ描画へ反映されるので Hydration 差分は起きない
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  // 年の切り替えは入力表だけに影響する。サマリー・推移・構成比は常に最新の値を使う
-  const year = selectedYear ?? currentYear;
-
-  const summary = useMemo(() => computeSummary(store), [store]);
-  const trend = useMemo(() => {
-    const { from, to } = trendPeriod(store, { year: currentYear, month: currentMonth }, trendRange);
-    return buildTrendData(store, from, to);
-  }, [store, currentYear, currentMonth, trendRange]);
-  const allocation = useMemo(
-    () =>
-      summary.latest ? buildAllocationData(store, summary.latest.year, summary.latest.month, allocationMode) : [],
-    [store, summary.latest, allocationMode],
-  );
-
-  if (!isLoaded) return <LoadingSkeleton />;
+  const app: AppState = {
+    store,
+    saveStore: replaceStore,
+    summary,
+    currentYear,
+    currentMonth: now.getMonth() + 1,
+    year: selectedYear ?? currentYear,
+    setYear: setSelectedYear,
+    trendRange,
+    setTrendRange,
+    allocationMode,
+    setAllocationMode,
+    unsavedChangesRef,
+  };
 
   return (
-    <div className="flex min-h-full flex-col">
-      <Header
-        right={
+    <AppContext.Provider value={app}>
+      <Frame
+        header={
           <SyncMenu
             state={sync.state}
             ready={sync.ready}
@@ -65,11 +63,14 @@ export function TameruApp() {
             onRestoreBackup={sync.restoreBackup}
           />
         }
-      />
-      {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
-        {/* 金額がまだ1つも入力されていない（初めて使う）ときだけ紹介を出す */}
-        {!summary.latest && <WelcomeCard />}
+        unsavedChangesRef={unsavedChangesRef}
+        footerNote={
+          sync.state.status === "signed-out"
+            ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
+            : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"
+        }
+      >
+        {sync.initialChoice && <InitialSyncDialog request={sync.initialChoice} />}
         {sync.backupNotice && (
           <BackupNotice
             message={
@@ -85,32 +86,33 @@ export function TameruApp() {
             onClose={sync.dismissBackupNotice}
           />
         )}
-        <SummaryCards summary={summary} />
-        <AssetTable
-          savedStore={store}
-          year={year}
-          currentYear={currentYear}
-          onYearChange={setSelectedYear}
-          highlightMonth={summary.latest?.year === year ? summary.latest.month : null}
-          onSave={replaceStore}
-        />
-        <div className="grid gap-6 lg:grid-cols-5">
-          <TrendChart data={trend} range={trendRange} onRangeChange={setTrendRange} />
-          <AllocationChart
-            data={allocation}
-            latest={summary.latest}
-            mode={allocationMode}
-            onModeChange={setAllocationMode}
-          />
-        </div>
-      </main>
+        {children}
+      </Frame>
+    </AppContext.Provider>
+  );
+}
+
+/** ヘッダー・タブ・本文・画面下の配置 */
+function Frame({
+  header,
+  unsavedChangesRef,
+  footerNote,
+  children,
+}: {
+  header: ReactNode;
+  unsavedChangesRef?: AppState["unsavedChangesRef"];
+  footerNote?: string;
+  children: ReactNode;
+}) {
+  return (
+    // スマホでは画面の下にタブが固定されるので、その分の余白を空ける
+    <div className="flex min-h-full flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-0">
+      <Header right={header} />
+      <TabNav unsavedChangesRef={unsavedChangesRef} />
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">{children}</main>
       <footer className="space-y-4 px-4 py-6 text-center text-xs text-slate-400">
         <SiteAbout />
-        <p>
-          {sync.state.status === "signed-out"
-            ? "TAMERU — データはこのブラウザ内にのみ保存され、外部に送信されません"
-            : "TAMERU — ログイン中は、データを端末間で同期するためクラウド（Google Firebase・東京）に保存します"}
-        </p>
+        {footerNote && <p>{footerNote}</p>}
         <SiteFooterLinks />
       </footer>
     </div>
@@ -151,14 +153,13 @@ function BackupNotice({ message, onRestore, onClose }: { message: string; onRest
 }
 
 /**
- * データの読み込み中の表示。ヘッダー・紹介文・リンクは、読み込み前から HTML に含めておく
+ * データの読み込み中の表示。ヘッダー・タブ・紹介文・リンクは、読み込み前から HTML に含めておく
  * （検索エンジンや、表示が遅い端末でも何のサイトか分かるように）
  */
-function LoadingSkeleton() {
+function LoadingShell() {
   return (
-    <div className="flex min-h-full flex-col">
-      <Header right={null} />
-      <div className="mx-auto w-full max-w-7xl flex-1 animate-pulse space-y-6 px-4 py-6 sm:px-6" aria-busy="true" aria-label="読み込み中">
+    <Frame header={null}>
+      <div className="animate-pulse space-y-6" aria-busy="true" aria-label="読み込み中">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-32 rounded-2xl bg-slate-200/70" />
@@ -166,10 +167,6 @@ function LoadingSkeleton() {
         </div>
         <div className="h-80 rounded-2xl bg-slate-200/70" />
       </div>
-      <footer className="space-y-4 px-4 py-6 text-center text-xs text-slate-400">
-        <SiteAbout />
-        <SiteFooterLinks />
-      </footer>
-    </div>
+    </Frame>
   );
 }

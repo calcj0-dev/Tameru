@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { openApp, seedData } from "../helpers";
+import { openApp, seedData, tab } from "../helpers";
 
 test.describe("PWA（オフライン）", () => {
-  test("一度開いたあとは、オフラインでも起動でき、入力した値も保存される", async ({ page, context, browserName }) => {
+  test("一度開いたあとは、オフラインでも起動でき、記録の画面で入力した値も保存される", async ({ page, context, browserName }) => {
     // Playwright の WebKit は、Service Worker 経由のオフライン再読み込みに対応していない（ツール側の制限）
     test.skip(browserName === "webkit", "WebKit ではオフライン再読み込みをテストできない");
     await openApp(page, seedData({ "2026-09": { h1: 1_000_000 } }));
@@ -15,9 +15,14 @@ test.describe("PWA（オフライン）", () => {
     await page.reload();
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("¥1,000,000");
 
+    // オフラインのまま記録の画面へ移って入力・保存し、ホームに戻ると反映されている
+    await tab(page, "記録").click();
+    // オフラインのまま記録の画面へ移って入力・保存し、ホームに戻ると反映されている
+    await tab(page, "記録").click();
     await page.getByRole("button", { name: "編集", exact: true }).click();
     await page.locator("input[data-cell='h2:9']").fill("500000");
     await page.getByRole("button", { name: /^保存/ }).click();
+    await tab(page, "ホーム").click();
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("¥1,500,000");
     await context.setOffline(false);
   });

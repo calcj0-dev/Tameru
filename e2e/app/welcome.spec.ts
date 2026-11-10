@@ -17,7 +17,7 @@ test.describe("初回の紹介カード", () => {
     await card.getByRole("button", { name: "はじめる" }).click();
     await expect(card).toBeHidden();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
     await expect(page.getByRole("region", { name: "TAMERU の紹介" })).toBeHidden();
   });
 

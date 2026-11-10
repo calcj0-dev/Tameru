@@ -5,7 +5,7 @@ test.describe("スプレッドシート連携", () => {
   test.beforeEach(async ({ page, context, browserName }) => {
     // クリップボードの権限指定は Chrome のみ（WebKit は権限なしで使える）
     if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await openApp(page, seedData({ "2026-01": { h1: 100 } }));
+    await openApp(page, seedData({ "2026-01": { h1: 100 } }), { path: "/record" });
     await page.getByRole("button", { name: "編集", exact: true }).click();
     await page.getByRole("button", { name: "スプレッドシート連携" }).click();
   });

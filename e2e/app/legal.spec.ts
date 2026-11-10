@@ -20,7 +20,7 @@ test.describe("プライバシーポリシー・利用規約", () => {
     await expect(page.getByRole("heading", { name: "2. 投資助言ではないこと" })).toBeVisible();
 
     await page.getByRole("link", { name: "TAMERU に戻る" }).click();
-    await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
   });
 
   test("ログイン前の説明画面に、規約への同意とリンクが表示される", async ({ page }) => {
