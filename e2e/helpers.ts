@@ -38,8 +38,13 @@ export const TODAY = new Date("2026-10-15T10:00:00+09:00");
 /**
  * 保存データを入れた状態でアプリを開く（null なら空の状態＝初回起動）。
  * 初回の紹介カードは、welcome: true のときだけ表示する（ほかのテストの邪魔にならないように）
+ * path: "/"（ホーム: サマリー・グラフ）または "/record"（記録: 入力表）
  */
-export async function openApp(page: Page, data: unknown | null = seedData(), { welcome = false } = {}) {
+export async function openApp(
+  page: Page,
+  data: unknown | null = seedData(),
+  { welcome = false, path = "/" }: { welcome?: boolean; path?: "/" | "/record" } = {},
+) {
   await page.clock.setFixedTime(TODAY);
   // アプリが起動すると初期データを保存してしまうため、アプリを読み込まないページ（同じドメイン）で先にデータを入れる
   await page.goto("/manifest.webmanifest");
@@ -51,8 +56,18 @@ export async function openApp(page: Page, data: unknown | null = seedData(), { w
     },
     [STORAGE_KEY, data ? JSON.stringify(data) : null, welcome] as const,
   );
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+  await page.goto(path);
+  await expect(appLoaded(page, path)).toBeVisible();
+}
+
+/** 画面の読み込みが終わったことの目印 */
+export function appLoaded(page: Page, path: "/" | "/record") {
+  return path === "/record" ? page.getByRole("heading", { name: "資産入力" }) : page.getByRole("region", { name: "サマリー" });
+}
+
+/** 画面の切り替え（タブ） */
+export function tab(page: Page, name: "ホーム" | "記録") {
+  return page.getByRole("navigation", { name: "画面の切り替え" }).getByRole("link", { name, exact: true });
 }
 
 /** LocalStorage に保存されているデータ */

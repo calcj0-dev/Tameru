@@ -56,7 +56,7 @@ export async function newDevice(browser: Browser, data: unknown | null) {
     [STORAGE_KEY, data ? JSON.stringify(data) : null] as const,
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "資産入力" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
   return page;
 }
 
@@ -66,8 +66,9 @@ export const syncButton = (page: Page) => page.locator("header button[aria-haspo
 /** 「Google でログイン」→ 説明画面 → エミュレーターのログイン画面でログインする */
 export async function login(page: Page, email: string) {
   // エミュレーターは起動直後の最初のログインだけ、結果がアプリに届かずログイン画面が閉じないことがある
-  // （エミュレーター側の初期化の問題で、アプリの不具合ではない）。その場合はログイン画面を閉じて最初からやり直す
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // （エミュレーター側の初期化の問題で、アプリの不具合ではない。main でも同じ）。その場合はログイン画面を閉じて最初からやり直す。
+  // ログインが後から届いて「接続中」のまま止まった場合は、ページを開き直してからやり直す（loginOnce を参照）
+  for (let attempt = 1; attempt <= 3; attempt++) {
     if (await loginOnce(page, email)) return;
     if (process.env.E2E_DEBUG) console.log(`[login] retry whole login (attempt ${attempt})`);
   }
@@ -104,6 +105,16 @@ async function loginOnce(page: Page, email: string): Promise<boolean> {
     log("popup did not close; closing and retrying");
     await popup.close();
     await expect(dialog).toBeHidden({ timeout: 10_000 }); // アプリ側は「ログイン画面を閉じた」として説明画面を閉じる
+    // ログインが後から届いた場合は、「Google でログイン」ボタンの代わりに同期の状態（「接続中」など）が表示される
+    await page.waitForTimeout(2_000);
+    if (await syncButton(page).isVisible()) {
+      // この状態では同期が始まらないため、ページを開き直す（後から届いたログインは保存されず、未ログインに戻る）
+      log("signed in late; reloading");
+      await page.reload();
+      await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
+      await page.waitForTimeout(2_000);
+      if (await syncButton(page).isVisible()) return true; // ログインが保存されていた場合は、そのまま同期が始まる
+    }
     return false;
   }
   log("popup closed");
@@ -123,13 +134,16 @@ export async function openSyncMenu(page: Page) {
   return page.getByRole("menu");
 }
 
-/** 編集 → 金額を入力 → 保存 */
+/** 記録の画面で 編集 → 金額を入力 → 保存 → ホームの画面に戻る */
 export async function editAndSave(page: Page, holdingId: string, year: number, month: number, value: string) {
+  await page.getByRole("navigation", { name: "画面の切り替え" }).getByRole("link", { name: "記録", exact: true }).click();
   await page.getByRole("button", { name: "編集", exact: true }).click();
   await goToTableYear(page, year);
   await page.locator(`input[data-cell="${holdingId}:${month}"]`).fill(value);
   await page.getByRole("button", { name: /^保存/ }).click();
   await expect(page.getByRole("button", { name: "編集", exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "画面の切り替え" }).getByRole("link", { name: "ホーム", exact: true }).click();
+  await expect(page.getByRole("region", { name: "サマリー" })).toBeVisible();
 }
 
 async function goToTableYear(page: Page, year: number) {

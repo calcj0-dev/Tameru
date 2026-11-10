@@ -1,23 +1,51 @@
 import { expect, test, type Page } from "@playwright/test";
-import { answerDialogs, cell, goToYear, openApp, seedData, storedData, storedMonth } from "../helpers";
+import { answerDialogs, cell, goToYear, openApp, seedData, storedData, storedMonth, tab } from "../helpers";
 
 const editButton = (page: Page) => page.getByRole("button", { name: "編集", exact: true });
 const saveButton = (page: Page) => page.getByRole("button", { name: /^保存/ });
 const cancelButton = (page: Page) => page.getByRole("button", { name: "キャンセル", exact: true });
 
 test.describe("編集と保存", () => {
-  test("編集 → 入力 → 保存で反映され、参照のみに戻る。保存するまでサマリーは変わらない", async ({ page }) => {
-    await openApp(page, seedData({ "2026-09": { h1: 1_000_000, h2: 2_000_000, h3: 0 } }));
+  test("編集中に保存せずにタブで画面を移ろうとすると確認が出る。やめれば編集を続け、移れば変更は破棄される", async ({ page }) => {
+    await openApp(page, seedData({ "2026-09": { h1: 1000 } }), { path: "/record" });
+    await editButton(page).click();
+    // 変更がなければ確認なしで移れる
+    const dialogs = answerDialogs(page, false);
+    await tab(page, "ホーム").click();
+    await expect(page).toHaveURL(/\/$/);
+    expect(dialogs).toHaveLength(0);
+
+    await tab(page, "記録").click();
+    await editButton(page).click();
+    await cell(page, "h1", 10).fill("999");
+    await cell(page, "h1", 10).blur();
+    await tab(page, "ホーム").click(); // 確認で「キャンセル」→ 記録の画面のまま
+    expect(dialogs.at(-1)).toContain("変更を破棄しますか");
+    await expect(page).toHaveURL(/\/record$/);
+    await expect(cell(page, "h1", 10)).toHaveValue("999");
+
+    page.removeAllListeners("dialog");
+    answerDialogs(page, true);
+    await tab(page, "ホーム").click(); // 確認で「OK」→ 移る。変更は保存されない
+    await expect(page).toHaveURL(/\/$/);
+    expect(await storedMonth(page, 2026, 10)).toBeNull();
+    await tab(page, "記録").click();
+    await expect(editButton(page)).toBeVisible(); // 参照のみに戻っている
+  });
+
+  test("編集 → 入力 → 保存で反映され、参照のみに戻る。保存するまで保存データは変わらない。ホームのサマリーにも反映される", async ({ page }) => {
+    await openApp(page, seedData({ "2026-09": { h1: 1_000_000, h2: 2_000_000, h3: 0 } }), { path: "/record" });
     await editButton(page).click();
     await expect(saveButton(page)).toBeEnabled(); // 変更がなくても押せる（入力直後に押しても1回で保存できるように）
 
     await cell(page, "h1", 10).fill("1500000");
     await cell(page, "h1", 10).blur();
-    // 保存前: サマリーは9月のまま
-    await expect(page.getByRole("region", { name: "サマリー" })).toContainText("2026年9月末時点");
+    // 保存前: 保存データは変わらない
+    expect(await storedMonth(page, 2026, 10)).toBeNull();
 
     await saveButton(page).click();
     await expect(page.locator("input[data-cell]")).toHaveCount(0); // 参照のみに戻る
+    await tab(page, "ホーム").click();
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("2026年10月末時点");
     // 入力がある月の空欄は0で埋まる（未来の月は空欄のまま）
     expect(await storedMonth(page, 2026, 10)).toEqual({ h1: 1_500_000, h2: 0, h3: 0 });
@@ -25,7 +53,7 @@ test.describe("編集と保存", () => {
   });
 
   test("入力した直後に保存ボタンを押しても、入力した値が保存される", async ({ page }) => {
-    await openApp(page, seedData());
+    await openApp(page, seedData(), { path: "/record" });
     await editButton(page).click();
     await cell(page, "h2", 1).fill("777");
     await saveButton(page).click(); // blur せずにそのまま押す
@@ -33,7 +61,7 @@ test.describe("編集と保存", () => {
   });
 
   test("0は薄いグレーで表示される", async ({ page }) => {
-    await openApp(page, seedData({ "2026-09": { h1: 1000, h2: 0, h3: 0 } }));
+    await openApp(page, seedData({ "2026-09": { h1: 1000, h2: 0, h3: 0 } }), { path: "/record" });
     const zero = page.locator("tbody td span", { hasText: /^0$/ }).first();
     const color = await zero.evaluate((el) => getComputedStyle(el).color);
     const normal = await page.locator("tbody td span", { hasText: "1,000" }).first().evaluate((el) => getComputedStyle(el).color);
@@ -41,7 +69,7 @@ test.describe("編集と保存", () => {
   });
 
   test("キャンセル: 変更がなければ確認なしで戻り、変更があれば確認が出る", async ({ page }) => {
-    await openApp(page, seedData({ "2026-09": { h1: 1000 } }));
+    await openApp(page, seedData({ "2026-09": { h1: 1000 } }), { path: "/record" });
     const dialogs = answerDialogs(page, false);
 
     await editButton(page).click();
@@ -63,7 +91,7 @@ test.describe("編集と保存", () => {
   });
 
   test("変更がないまま保存すると、何も変えずに参照のみに戻る", async ({ page }) => {
-    await openApp(page, seedData({ "2026-09": { h1: 1000 } }));
+    await openApp(page, seedData({ "2026-09": { h1: 1000 } }), { path: "/record" });
     const before = await storedData(page);
     await editButton(page).click();
     await saveButton(page).click();
@@ -72,7 +100,7 @@ test.describe("編集と保存", () => {
   });
 
   test("再読み込みすると参照のみから始まる", async ({ page }) => {
-    await openApp(page, seedData());
+    await openApp(page, seedData(), { path: "/record" });
     await editButton(page).click();
     await page.reload();
     await expect(editButton(page)).toBeVisible();
@@ -82,7 +110,7 @@ test.describe("編集と保存", () => {
 
 test.describe("元に戻す・やり直す", () => {
   test.beforeEach(async ({ page }) => {
-    await openApp(page, seedData({ "2026-01": { h1: 100 } }));
+    await openApp(page, seedData({ "2026-01": { h1: 100 } }), { path: "/record" });
     await editButton(page).click();
   });
 
@@ -150,7 +178,7 @@ test.describe("元に戻す・やり直す", () => {
 
 test.describe("金額の入力", () => {
   test.beforeEach(async ({ page }) => {
-    await openApp(page, seedData({ "2026-01": { h1: 100 } }));
+    await openApp(page, seedData({ "2026-01": { h1: 100 } }), { path: "/record" });
     await editButton(page).click();
   });
 
@@ -198,7 +226,7 @@ test.describe("金額の入力", () => {
 
 test.describe("口座・内訳の管理", () => {
   test.beforeEach(async ({ page }) => {
-    await openApp(page, seedData({ "2026-01": { h1: 1, h2: 2, h3: 3 } }));
+    await openApp(page, seedData({ "2026-01": { h1: 1, h2: 2, h3: 3 } }), { path: "/record" });
     await editButton(page).click();
   });
 
@@ -255,7 +283,7 @@ test.describe("口座・内訳の管理", () => {
 test.describe("表示の不具合の再発防止", () => {
   test("横スクロールしても、口座/内訳の列に金額が透けない（固定列の背景が不透明）", async ({ page, isMobile }) => {
     test.skip(isMobile, "マウスを乗せたときの表示のため PC のみ");
-    await openApp(page, seedData({ "2026-01": { h1: 1_234_567 } }));
+    await openApp(page, seedData({ "2026-01": { h1: 1_234_567 } }), { path: "/record" });
     await editButton(page).click();
     const row = page.locator("tbody tr", { has: page.getByRole("textbox", { name: "銀行の内訳メモ" }) });
     await row.hover();

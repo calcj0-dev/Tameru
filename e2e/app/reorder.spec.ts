@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openApp, seedData, storedData } from "../helpers";
+import { openApp, seedData, storedData, tab } from "../helpers";
 
 const accountNames = (page: Page) => page.locator("[data-account-name]").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
 const holdingMemos = (page: Page) => page.locator("[data-holding-memo]").evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
 
 test.describe("口座・内訳の並び替え", () => {
   test.beforeEach(async ({ page }) => {
-    await openApp(page, seedData({ "2026-09": { h1: 100, h2: 200, h3: 300 } }));
+    await openApp(page, seedData({ "2026-09": { h1: 100, h2: 200, h3: 300 } }), { path: "/record" });
     await page.getByRole("button", { name: "編集", exact: true }).click();
   });
 
@@ -28,6 +28,7 @@ test.describe("口座・内訳の並び替え", () => {
     expect(saved.data.accounts[0].holdings.map((h: { id: string }) => h.id)).toEqual(["h3", "h2"]);
     expect(saved.data.yearlyData[2026].monthlyAmounts[9]).toEqual({ h1: 100, h2: 200, h3: 300 });
     // 総資産は変わらない
+    await tab(page, "ホーム").click();
     await expect(page.getByRole("region", { name: "サマリー" })).toContainText("¥600");
   });
 

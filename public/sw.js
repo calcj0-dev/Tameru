@@ -8,7 +8,7 @@
  * - その他の同一オリジンの GET: キャッシュを返しつつ裏で更新（stale-while-revalidate）
  */
 
-const VERSION = "v2";
+const VERSION = "v3";
 const PAGE_CACHE = `tameru-pages-${VERSION}`;
 const STATIC_CACHE = `tameru-static-${VERSION}`;
 const ASSET_CACHE = `tameru-assets-${VERSION}`;
@@ -47,17 +47,20 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-/** トップページと、その HTML が参照する静的ファイルを事前にキャッシュする */
+/** アプリの画面（ホーム・記録）と、その HTML が参照する静的ファイルを事前にキャッシュする */
+const APP_PAGES = ["/", "/record"];
+
 async function precacheAppShell() {
   try {
-    const res = await fetch("/", { cache: "no-store" });
-    if (!res.ok) return;
-    const html = await res.clone().text();
     const pageCache = await caches.open(PAGE_CACHE);
-    await pageCache.put("/", res);
-
     const assets = new Set(["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"]);
-    for (const m of html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)) assets.add(m[1]);
+    for (const page of APP_PAGES) {
+      const res = await fetch(page, { cache: "no-store" });
+      if (!res.ok) continue;
+      const html = await res.clone().text();
+      await pageCache.put(page, res);
+      for (const m of html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)) assets.add(m[1]);
+    }
     const staticCache = await caches.open(STATIC_CACHE);
     const assetCache = await caches.open(ASSET_CACHE);
     await Promise.all(
