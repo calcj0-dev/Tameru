@@ -3,11 +3,19 @@
  * - `data-capture-hide` 属性を持つ要素（操作ボタン等）とグラフのツールチップは画像に含めない
  * - スマホ（タッチ端末）では共有シート経由で「写真に保存」できるようにする
  */
-export async function saveElementAsPng(node: HTMLElement, fileName: string): Promise<void> {
+export async function saveElementAsPng(
+  node: HTMLElement,
+  fileName: string,
+  { width, height, pixelRatio = 2 }: { width?: number; height?: number; pixelRatio?: number } = {},
+): Promise<void> {
   // html-to-image はクリック時にだけ読み込む（初期表示のバンドルを軽く保つ）
   const { toBlob } = await import("html-to-image");
   const blob = await toBlob(node, {
-    pixelRatio: 2,
+    pixelRatio,
+    width,
+    height,
+    // 画面の外に置いた要素も、画像の中では左上に置く
+    style: { position: "static", left: "0", top: "0", transform: "none" },
     backgroundColor: "#ffffff",
     cacheBust: true,
     filter: (el) => {

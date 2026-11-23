@@ -24,7 +24,8 @@ import { fillEmptyWithZero } from "@/lib/storeReducer";
 import { INITIAL_DRAFT, draftReducer, isDirty } from "@/lib/draftHistory";
 import { getAccountMonthTotal, getMonthAmounts, getMonthTotal, hasMonthData, shiftMonth } from "@/lib/assetCalc";
 import { ASSET_CLASSES, MAX_ACCOUNTS, MAX_HOLDINGS_PER_ACCOUNT, MONTHS, REGIONS, accountColor } from "@/lib/constants";
-import { formatNumber } from "@/lib/format";
+import { amountFormatters, useAmountVisibility } from "@/lib/amountVisibility";
+import { AmountVisibilityToggle } from "@/components/AmountVisibilityToggle";
 import { cn } from "@/lib/utils";
 import { AmountCell, type NavDirection } from "@/components/AmountCell";
 import { YearSwitcher } from "@/components/YearSwitcher";
@@ -67,6 +68,8 @@ export function AssetTable({
   const [draftState, dispatchDraft] = useReducer(draftReducer, INITIAL_DRAFT);
   const { draft } = draftState;
   const dirty = isDirty(draftState);
+  // 金額を隠すモードでも、編集中は入力できるように表示する
+  const { hidden: hideAmounts } = useAmountVisibility();
   // 保存していない変更の有無を外へ知らせる。画面を離れる（この表が消える）ときは「変更なし」に戻す
   const onDirtyChangeRef = useRef(onDirtyChange);
   useEffect(() => {
@@ -84,6 +87,7 @@ export function AssetTable({
   );
   const editing = draft !== null;
   const store = draft ?? savedStore;
+  const formatAmount = amountFormatters(hideAmounts && !editing).number;
 
   /** 入力欄にフォーカスしたら、それまでの入力とは別の操作として履歴に積む */
   const markBoundary = () => dispatchDraft({ type: "boundary" });
@@ -278,11 +282,11 @@ export function AssetTable({
           <p className="mt-1.5 text-xs text-slate-500">
             {editing ? (
               <>
-                各月末の残高を内訳ごとに入力。<Kbd>Enter</Kbd> で下へ、<Kbd>Tab</Kbd>{" "}
+                各月の残高を内訳ごとに入力。<Kbd>Enter</Kbd> で下へ、<Kbd>Tab</Kbd>{" "}
                 で右へ移動します。入力が終わったら「保存」を押してください（入力がある月の空欄は0円になります）。
               </>
             ) : (
-              "各月末時点の残高です。入力・修正するときは「編集」を押してください。"
+              "各月の残高です。入力・修正するときは「編集」を押してください。"
             )}
           </p>
         </div>
@@ -353,6 +357,7 @@ export function AssetTable({
               </button>
             </>
           )}
+          {!editing && <AmountVisibilityToggle />}
           {!editing && (
             <button
               type="button"
@@ -530,7 +535,7 @@ export function AssetTable({
                             subtotal === 0 && "font-normal text-slate-400",
                           )}
                         >
-                          {subtotal === null ? "—" : formatNumber(subtotal)}
+                          {subtotal === null ? "—" : formatAmount(subtotal)}
                         </td>
                       );
                     })}
@@ -652,7 +657,7 @@ export function AssetTable({
                                     value === undefined ? "text-slate-300" : value === 0 ? "text-slate-400" : "text-slate-800",
                                   )}
                                 >
-                                  {value === undefined ? "—" : formatNumber(value)}
+                                  {value === undefined ? "—" : formatAmount(value)}
                                 </span>
                               )}
                             </td>
@@ -699,7 +704,7 @@ export function AssetTable({
                         total === 0 && "font-normal text-slate-400",
                       )}
                     >
-                      {total === null ? "—" : formatNumber(total)}
+                      {total === null ? "—" : formatAmount(total)}
                     </td>
                   );
                 })}

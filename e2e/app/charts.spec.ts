@@ -35,7 +35,7 @@ test.describe("サマリーとグラフ", () => {
 
     await tab(page, "ホーム").click();
     expect(await summary.innerText()).toBe(before);
-    await expect(allocationPanel(page)).toContainText("2026年9月末時点");
+    await expect(allocationPanel(page)).toContainText("2026年9月時点");
     // 資産推移の期間（2年）も保たれている
     await expect(trendPanel(page).getByRole("button", { name: "2年" })).toHaveAttribute("aria-pressed", "true");
     expect(trendBefore).not.toBe("");
@@ -49,9 +49,9 @@ test.describe("サマリーとグラフ", () => {
 
   test("前月比・前年比・年初比が表示される", async ({ page }) => {
     const summary = page.getByRole("region", { name: "サマリー" });
-    await expect(summary).toContainText("2026年8月末");
-    await expect(summary).toContainText("2025年9月末");
-    await expect(summary).toContainText("2025年12月末");
+    await expect(summary).toContainText("2026年8月");
+    await expect(summary).toContainText("2025年9月");
+    await expect(summary).toContainText("2025年12月");
   });
 
   test("資産推移の期間切り替え（1年は今月までの直近12か月）", async ({ page }) => {
@@ -86,11 +86,32 @@ test.describe("サマリーとグラフ", () => {
     await expect(page.getByRole("dialog")).toBeHidden();
   });
 
-  test("グラフを画像として保存できる", async ({ page, isMobile }) => {
+  test("グラフを画像として保存できる。画像の大きさは、どのグラフも 1200×675（画面の大きさに関係なく同じ）", async ({ page, isMobile }) => {
     test.skip(isMobile, "スマホは共有シートを使うため PC のみ");
-    const download = page.waitForEvent("download");
-    await trendPanel(page).getByRole("button", { name: "画像として保存" }).click();
-    const file = await download;
-    expect(file.suggestedFilename()).toMatch(/^tameru-資産推移-\d{8}-\d{6}\.png$/);
+    const panels = [
+      { panel: trendPanel(page), file: /^tameru-資産推移-\d{8}-\d{6}\.png$/ },
+      { panel: allocationPanel(page), file: /^tameru-.+-\d{8}-\d{6}\.png$/ },
+    ];
+    for (const { panel, file: name } of panels) {
+      const download = page.waitForEvent("download");
+      await panel.getByRole("button", { name: "画像として保存" }).click();
+      const file = await download;
+      expect(file.suggestedFilename()).toMatch(name);
+      expect(pngSize(await readAll(await file.createReadStream()))).toEqual({ width: 1200, height: 675 });
+      await expect(panel.getByRole("button", { name: "画像として保存" })).toBeVisible({ timeout: 5000 });
+    }
+    // 保存用の枠は、保存が終わると消える
+    await expect(page.locator("[data-capture-frame]")).toHaveCount(0);
   });
 });
+
+/** PNG の幅と高さ（ファイルの先頭の IHDR から読む） */
+function pngSize(buf: Buffer) {
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+async function readAll(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const c of stream) chunks.push(Buffer.from(c as Buffer));
+  return Buffer.concat(chunks);
+}

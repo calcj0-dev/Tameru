@@ -19,7 +19,7 @@ test.describe("起動・表示", () => {
     await openApp(page, seedData({ "2026-09": { h1: 1_000_000, h2: 2_000_000, h3: 480_000 } }));
     const summary = page.getByRole("region", { name: "サマリー" });
     await expect(summary).toContainText("¥3,480,000");
-    await expect(summary).toContainText("2026年9月末時点");
+    await expect(summary).toContainText("2026年9月時点");
     // 記録の画面の「合計」の行
     await tab(page, "記録").click();
     await expect(page.locator("tfoot")).toContainText("3,480,000");
