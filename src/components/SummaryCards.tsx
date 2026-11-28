@@ -2,23 +2,27 @@
 
 import { Minus, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import type { Comparison, YearSummary } from "@/lib/assetCalc";
-import { formatSignedPercent, formatSignedYen, formatYen } from "@/lib/format";
+import { formatSignedPercent } from "@/lib/format";
+import { useAmounts } from "@/lib/amountVisibility";
+import { AmountVisibilityToggle } from "@/components/AmountVisibilityToggle";
 import { cn } from "@/lib/utils";
 
 export function SummaryCards({ summary }: { summary: YearSummary }) {
   const { latest } = summary;
+  const amounts = useAmounts();
   return (
     <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="サマリー">
       <div className="rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 p-5 text-white shadow-lg shadow-teal-700/20">
-        <div className="flex items-center gap-2 text-sm text-teal-50/90">
+        <div className="-my-1 flex items-center gap-2 text-sm text-teal-50/90">
           <Wallet className="size-4" aria-hidden />
-          総資産
+          <span className="flex-1">総資産</span>
+          <AmountVisibilityToggle tone="onDark" className="-mr-2" />
         </div>
         <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums lg:text-2xl xl:text-3xl">
-          {formatYen(summary.total)}
+          {amounts.yen(summary.total)}
         </p>
         <p className="mt-1 text-xs text-teal-50/80">
-          {latest ? `${latest.year}年${latest.month}月末時点` : "まだデータが入力されていません"}
+          {latest ? `${latest.year}年${latest.month}月時点` : "まだデータが入力されていません"}
         </p>
       </div>
       <ComparisonCard title="前月比" comparison={summary.monthOverMonth} emptyText="比較できる前月のデータがありません" />
@@ -42,6 +46,7 @@ function ComparisonCard({
   emptyText: string;
 }) {
   const diff = comparison?.diff ?? 0;
+  const amounts = useAmounts();
   const tone = diff > 0 ? "up" : diff < 0 ? "down" : "flat";
   const Icon = tone === "up" ? TrendingUp : tone === "down" ? TrendingDown : Minus;
 
@@ -73,10 +78,10 @@ function ComparisonCard({
               tone === "flat" && "text-slate-700",
             )}
           >
-            {formatSignedYen(diff)}
+            {amounts.signedYen(diff)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {comparison.base.year}年{comparison.base.month}月末 {formatYen(comparison.baseTotal)} から
+            {comparison.base.year}年{comparison.base.month}月 {amounts.yen(comparison.baseTotal)} から
           </p>
         </>
       ) : (

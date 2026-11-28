@@ -4,9 +4,10 @@ import { useId } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { TrendPoint } from "@/lib/assetCalc";
-import { formatCompactYen, formatSignedPercent, formatSignedYen, formatYen } from "@/lib/format";
+import { formatCompactYen, formatSignedPercent } from "@/lib/format";
+import { useAmounts, useAmountVisibility } from "@/lib/amountVisibility";
 import { cn } from "@/lib/utils";
-import { ChartPanel } from "@/components/ChartPanel";
+import { ChartPanel, type PlotMode } from "@/components/ChartPanel";
 import { SegmentedControl } from "@/components/SegmentedControl";
 
 export type TrendRange = 1 | 2 | 3 | 5 | "all";
@@ -37,19 +38,21 @@ export function TrendChart({ data, range, onRangeChange }: TrendChartProps) {
   return (
     <ChartPanel
       title="資産推移"
-      subtitle={`${period}・各月末時点の総資産`}
+      subtitle={`${period}・各月の総資産`}
       captureLabel="資産推移"
       className="lg:col-span-3"
       controls={
         <SegmentedControl value={range} options={RANGE_OPTIONS} onChange={onRangeChange} ariaLabel="表示期間" />
       }
     >
-      {(expanded) => <TrendPlot data={data} expanded={expanded} />}
+      {(mode) => <TrendPlot data={data} mode={mode} />}
     </ChartPanel>
   );
 }
 
-function TrendPlot({ data, expanded }: { data: TrendPoint[]; expanded: boolean }) {
+function TrendPlot({ data, mode }: { data: TrendPoint[]; mode: PlotMode }) {
+  const expanded = mode !== "card";
+  const { hidden } = useAmountVisibility();
   // useId の値には記号が含まれるため、SVG の url(#id) で使えるよう英数字だけにする
   const gradientId = `trend-fill-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const values = data.flatMap((d) => (d.total !== null && Number.isFinite(d.total) ? [d.total] : []));
@@ -59,7 +62,12 @@ function TrendPlot({ data, expanded }: { data: TrendPoint[]; expanded: boolean }
   const xAxis = xAxisConfig(data);
 
   return (
-    <div className={cn("relative -mx-1 mt-4", expanded ? "h-[65vh] min-h-80" : "h-72")}>
+    <div
+      className={cn(
+        "relative -mx-1",
+        mode === "capture" ? "min-h-0 flex-1" : mode === "modal" ? "mt-4 h-[65vh] min-h-80" : "mt-4 h-72",
+      )}
+    >
       {!hasData && <EmptyOverlay />}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 32, right: 20, bottom: 0, left: 4 }}>
@@ -76,15 +84,15 @@ function TrendPlot({ data, expanded }: { data: TrendPoint[]; expanded: boolean }
             ticks={xAxis.ticks}
             tickFormatter={xAxis.format}
             interval={xAxis.ticks ? 0 : "equidistantPreserveStart"}
-            tick={{ fontSize: expanded ? 12 : 11, fill: TICK_COLOR }}
+            tick={{ fontSize: mode === "capture" ? 16 : expanded ? 12 : 11, fill: TICK_COLOR }}
             tickLine={false}
             axisLine={false}
             tickMargin={10}
             minTickGap={4}
           />
           <YAxis
-            tickFormatter={(v: number) => formatCompactYen(v)}
-            tick={{ fontSize: expanded ? 12 : 11, fill: TICK_COLOR }}
+            tickFormatter={(v: number) => (hidden ? "" : formatCompactYen(v))}
+            tick={{ fontSize: mode === "capture" ? 16 : expanded ? 12 : 11, fill: TICK_COLOR }}
             tickLine={false}
             axisLine={false}
             tickMargin={6}
@@ -113,6 +121,8 @@ function TrendPlot({ data, expanded }: { data: TrendPoint[]; expanded: boolean }
               <EndDot key={props.index} {...props} lastIndex={lastIndex} pointCount={data.length} />
             )}
             activeDot={{ r: 5, fill: LINE_COLOR, stroke: "#fff", strokeWidth: 2 }}
+            // 画像保存用は、線を描くアニメーションの途中で写らないよう、アニメーションしない
+            isAnimationActive={mode !== "capture"}
             animationDuration={600}
             animationEasing="ease-out"
           />
@@ -163,6 +173,7 @@ interface DotProps {
 
 /** 最新月のみ、点（白い縁取り＋淡い光彩）と金額ラベルを描く */
 function EndDot({ cx, cy, index, payload, lastIndex, pointCount }: DotProps & { lastIndex: number; pointCount: number }) {
+  const amounts = useAmounts();
   // Area の value は [下端, 上端] の配列になるため、元データ（payload）から値を取る
   const value = payload?.total;
   if (index === undefined || index !== lastIndex || cx === undefined || cy === undefined || typeof value !== "number") {
@@ -189,13 +200,14 @@ function EndDot({ cx, cy, index, payload, lastIndex, pointCount }: DotProps & { 
         strokeLinejoin="round"
         paintOrder="stroke"
       >
-        {formatCompactYen(value)}
+        {amounts.compactYen(value)}
       </text>
     </g>
   );
 }
 
 function TrendTooltip({ active, point }: { active?: boolean; point?: TrendPoint }) {
+  const amounts = useAmounts();
   if (!active || !point) return null;
   const change = point.change;
   const tone = !change ? "flat" : change.diff > 0 ? "up" : change.diff < 0 ? "down" : "flat";
@@ -204,13 +216,13 @@ function TrendTooltip({ active, point }: { active?: boolean; point?: TrendPoint 
   return (
     <div className="min-w-44 rounded-xl bg-slate-900/95 px-3.5 py-2.5 text-white shadow-xl shadow-slate-900/20 backdrop-blur">
       <p className="text-[11px] text-slate-400">
-        {point.year}年{point.month}月末
+        {point.year}年{point.month}月
       </p>
       {point.total === null ? (
         <p className="mt-0.5 text-sm text-slate-400">未入力</p>
       ) : (
         <>
-          <p className="mt-0.5 text-base font-semibold tabular-nums">{formatYen(point.total)}</p>
+          <p className="mt-0.5 text-base font-semibold tabular-nums">{amounts.yen(point.total)}</p>
           {change && (
             <p
               className={cn(
@@ -221,7 +233,7 @@ function TrendTooltip({ active, point }: { active?: boolean; point?: TrendPoint 
               )}
             >
               <Icon className="size-3.5" aria-hidden />
-              前月比 {formatSignedYen(change.diff)}（{formatSignedPercent(change.rate)}）
+              前月比 {amounts.signedYen(change.diff)}（{formatSignedPercent(change.rate)}）
             </p>
           )}
         </>

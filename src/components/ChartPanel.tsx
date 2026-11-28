@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { Check, Download, Loader2, Maximize2, TriangleAlert, X } from "lucide-react";
 import { captureFileName, saveElementAsPng } from "@/lib/capture";
 import { cn } from "@/lib/utils";
+
+/**
+ * グラフの描き方。card: カードの中 / modal: 拡大表示 / capture: 画像保存用（決まった大きさ）
+ */
+export type PlotMode = "card" | "modal" | "capture";
+
+/** 保存する画像の大きさ（X の投稿で切れずに大きく表示される 16:9） */
+export const CAPTURE_WIDTH = 1200;
+export const CAPTURE_HEIGHT = 675;
 
 interface ChartPanelProps {
   title: string;
@@ -14,8 +23,8 @@ interface ChartPanelProps {
   /** 期間切り替え等の操作UI（画像保存時は含めない） */
   controls?: ReactNode;
   className?: string;
-  /** expanded=true のとき拡大表示用の大きさで描画する */
-  children: (expanded: boolean) => ReactNode;
+  /** 描き方（カード・拡大表示・画像保存用）に合わせて描画する */
+  children: (mode: PlotMode) => ReactNode;
 }
 
 type SaveStatus = "idle" | "saving" | "done" | "error";
@@ -23,6 +32,7 @@ type SaveStatus = "idle" | "saving" | "done" | "error";
 /**
  * グラフ用のカード。ヘッダー右側に「拡大」「画像保存」ボタンを持つ。
  * 拡大時はモーダルで同じ内容を大きく描画する。
+ * 画像保存は、画面の表示とは別に、決まった大きさ（1200×675）の枠に描き直して保存する（どの端末でも同じ大きさになる）。
  */
 export function ChartPanel({ title, subtitle, captureLabel, controls, className, children }: ChartPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -31,15 +41,28 @@ export function ChartPanel({ title, subtitle, captureLabel, controls, className,
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const expandButtonRef = useRef<HTMLButtonElement>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [capturing, setCapturing] = useState(false);
+  const captureRef = useRef<HTMLDivElement>(null);
 
-  const handleSave = async (node: HTMLElement | null) => {
-    if (!node || saveStatus === "saving") return;
+  const handleSave = async () => {
+    if (saveStatus === "saving") return;
     setSaveStatus("saving");
+    // 保存用の枠をすぐに描画し、グラフの描画が終わるのを待ってから画像にする
+    flushSync(() => setCapturing(true));
     try {
-      await saveElementAsPng(node, captureFileName(captureLabel));
+      await waitForPaint();
+      const node = captureRef.current;
+      if (!node) throw new Error("保存用の枠がありません");
+      await saveElementAsPng(node, captureFileName(captureLabel), {
+        width: CAPTURE_WIDTH,
+        height: CAPTURE_HEIGHT,
+        pixelRatio: 1,
+      });
       setSaveStatus("done");
     } catch {
       setSaveStatus("error");
+    } finally {
+      setCapturing(false);
     }
     setTimeout(() => setSaveStatus("idle"), 2000);
   };
@@ -73,7 +96,7 @@ export function ChartPanel({ title, subtitle, captureLabel, controls, className,
         <div className="flex items-center gap-0.5">
           <IconButton
             label={saveStatusLabel(saveStatus)}
-            onClick={() => handleSave(isModal ? modalContentRef.current : cardRef.current)}
+            onClick={handleSave}
             disabled={saveStatus === "saving"}
             tone={saveStatus === "error" ? "error" : saveStatus === "done" ? "success" : "default"}
           >
@@ -108,7 +131,7 @@ export function ChartPanel({ title, subtitle, captureLabel, controls, className,
         className={cn("flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm", className)}
       >
         {header(false)}
-        {children(false)}
+        {children("card")}
       </section>
 
       {expanded &&
@@ -127,13 +150,36 @@ export function ChartPanel({ title, subtitle, captureLabel, controls, className,
               className="flex max-h-full w-full max-w-6xl flex-col overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7"
             >
               {header(true)}
-              {children(true)}
+              {children("modal")}
             </div>
+          </div>,
+          document.body,
+        )}
+
+      {capturing &&
+        createPortal(
+          // 画像保存用の枠（画面の外に置き、見えないようにする）
+          <div
+            ref={captureRef}
+            aria-hidden
+            data-capture-frame
+            className="pointer-events-none fixed top-0 flex flex-col bg-white p-10"
+            style={{ left: -100_000, width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT }}
+          >
+            <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+            <p className="mt-1 text-base text-slate-500">{subtitle}</p>
+            <div className="mt-4 flex min-h-0 flex-1 flex-col">{children("capture")}</div>
           </div>,
           document.body,
         )}
     </>
   );
+}
+
+/** グラフの描画（大きさの計算を含む）が終わるまで待つ */
+async function waitForPaint() {
+  for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
+  await new Promise((r) => setTimeout(r, 150));
 }
 
 function saveStatusLabel(status: SaveStatus): string {

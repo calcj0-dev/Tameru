@@ -12,6 +12,7 @@ import { InitialSyncDialog } from "@/components/SyncDialogs";
 import { SiteFooterLinks } from "@/components/SiteFooterLinks";
 import { SiteAbout } from "@/components/SiteAbout";
 import { AppContext, type AppState } from "@/components/app/AppContext";
+import { AmountVisibilityContext, loadHideAmounts, saveHideAmounts } from "@/lib/amountVisibility";
 import { TabNav } from "@/components/app/TabNav";
 
 /**
@@ -25,6 +26,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [allocationMode, setAllocationMode] = useState<AllocationMode>("assetClass");
   const [trendRange, setTrendRange] = useState<TrendRange>(1);
   const unsavedChangesRef = useRef(false);
+  // 金額を隠すモード（端末ごとに覚えておく。データの読み込み後にだけ使うので、Hydration 差分は起きない）
+  const [hideAmounts, setHideAmountsState] = useState(loadHideAmounts);
+  const setHideAmounts = (hidden: boolean) => {
+    setHideAmountsState(hidden);
+    saveHideAmounts(hidden);
+  };
   const summary = useMemo(() => computeSummary(store), [store]);
 
   if (!isLoaded) return <LoadingShell />;
@@ -49,6 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={app}>
+      <AmountVisibilityContext.Provider value={{ hidden: hideAmounts, setHidden: setHideAmounts }}>
       <Frame
         header={
           <SyncMenu
@@ -88,6 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         {children}
       </Frame>
+      </AmountVisibilityContext.Provider>
     </AppContext.Provider>
   );
 }

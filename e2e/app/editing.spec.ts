@@ -46,7 +46,7 @@ test.describe("編集と保存", () => {
     await saveButton(page).click();
     await expect(page.locator("input[data-cell]")).toHaveCount(0); // 参照のみに戻る
     await tab(page, "ホーム").click();
-    await expect(page.getByRole("region", { name: "サマリー" })).toContainText("2026年10月末時点");
+    await expect(page.getByRole("region", { name: "サマリー" })).toContainText("2026年10月時点");
     // 入力がある月の空欄は0で埋まる（未来の月は空欄のまま）
     expect(await storedMonth(page, 2026, 10)).toEqual({ h1: 1_500_000, h2: 0, h3: 0 });
     expect(await storedMonth(page, 2026, 11)).toBeNull();
